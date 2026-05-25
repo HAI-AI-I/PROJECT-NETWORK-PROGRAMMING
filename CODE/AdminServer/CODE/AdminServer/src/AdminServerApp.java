@@ -781,7 +781,7 @@ public class AdminServerApp extends JFrame {
     }
 
     private ImageIcon loadIcon(String fileName, int width, int height) {
-    ImageIcon icon = new ImageIcon("../assets/icons/" + fileName);
+    ImageIcon icon = new ImageIcon("assets/icons/" + fileName);
 
     Image image = icon.getImage();
     Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
