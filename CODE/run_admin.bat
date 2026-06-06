@@ -13,8 +13,8 @@ echo Current folder:
 cd
 echo.
 
-echo Compiling AdminServerApp.java...
-javac -encoding UTF-8 -d out src\AdminServerApp.java
+echo Compiling Admin Server files...
+javac -encoding UTF-8 -d out src\*.java
 
 if errorlevel 1 (
     echo.
