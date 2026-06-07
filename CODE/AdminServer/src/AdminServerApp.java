@@ -1,6 +1,8 @@
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
@@ -9,6 +11,8 @@ import javax.swing.tree.DefaultMutableTreeNode;
 public class AdminServerApp extends JFrame {
 
     private JTextArea eventLog;
+    private JPanel clientGrid;
+    private AdminServerController controller;
 
     private final Color BG = new Color(7, 7, 8);
     private final Color PANEL = new Color(15, 17, 20);
@@ -20,6 +24,8 @@ public class AdminServerApp extends JFrame {
     private final Color BORDER = new Color(80, 28, 32);
 
     public AdminServerApp() {
+        controller = new AdminServerController(this);
+
         setTitle("Admin Server - Network Monitoring System");
         setSize(1450, 850);
         setMinimumSize(new Dimension(1180, 720));
@@ -53,14 +59,14 @@ public class AdminServerApp extends JFrame {
         buttonPanel.setOpaque(false);
 
         JButton startButton = createTopButton("Start Server", true);
-        startButton.setIcon(loadIcon("play-button.png", 16, 16));
+        startButton.setIcon(loadIcon("playbutton.png", 16, 16));
         JButton stopButton = createTopButton("Stop Server", false);
         stopButton.setIcon(loadIcon("stop.png", 16, 16));
         JButton broadcastButton = createTopButton("Broadcast", false);
         broadcastButton.setIcon(loadIcon("broadcast.png", 24, 24));
 
-        startButton.addActionListener(e -> addLog("[SERVER] Server started successfully."));
-        stopButton.addActionListener(e -> addLog("[SERVER] Server stopped."));
+        startButton.addActionListener(e -> controller.startServer());
+        stopButton.addActionListener(e -> controller.stopServer());
         broadcastButton.addActionListener(e -> showBroadcastDialog());
 
         buttonPanel.add(startButton);
@@ -132,7 +138,7 @@ public class AdminServerApp extends JFrame {
                 "<html><div style='padding-left:26px;color:white;'>"
                         + "<span style='color:#ef2331;'>●</span> Online: 6<br>"
                         + "<span style='color:#777777;'>●</span> Offline: 0<br>"
-                        + "Port: <span style='color:#ef2331;'>9999</span>"
+                        + "Port: <span style='color:#ef2331;'>1412</span>"
                         + "</div></html>"
         );
         info.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -195,13 +201,9 @@ public class AdminServerApp extends JFrame {
         titlePanel.add(slash, BorderLayout.EAST);
         titlePanel.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, RED));
 
-        JPanel clientGrid = new JPanel(new GridLayout(2, 3, 18, 18));
+        clientGrid = new JPanel(new GridLayout(0, 3, 18, 18));
         clientGrid.setBackground(BG);
         clientGrid.setBorder(BorderFactory.createEmptyBorder(18, 0, 18, 0));
-
-        for (int i = 1; i <= 6; i++) {
-            clientGrid.add(createClientCard(i));
-        }
 
         JPanel center = new JPanel(new BorderLayout());
         center.setBackground(BG);
@@ -329,7 +331,7 @@ public class AdminServerApp extends JFrame {
         eventLog.setFont(new Font("Consolas", Font.PLAIN, 13));
         eventLog.setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18));
         eventLog.setText(
-                "[INFO] Admin Server UI initialized.\n"
+                "[INFO] Admin Server initialized.\n"
                         + "[INFO] Waiting for client connections...\n"
                         + "[INFO] Dashboard loaded.\n"
         );
@@ -345,12 +347,17 @@ public class AdminServerApp extends JFrame {
         return panel;
     }
 
-    private void addLog(String message) {
-        if (eventLog != null) {
-            eventLog.append("[2026-05-23] " + message + "\n");
+    public void addLog(String message) {
+    if (eventLog != null) {
+        SwingUtilities.invokeLater(() -> {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String currentTime = LocalDateTime.now().format(formatter);
+            
+            eventLog.append("[" + currentTime + "] " + message + "\n");
             eventLog.setCaretPosition(eventLog.getDocument().getLength());
-        }
+        });
     }
+}
 
     private void openClientDetailDialog(int clientNumber) {
         JDialog dialog = new JDialog(this, "Client Detail - CLIENT-" + String.format("%02d", clientNumber), true);
@@ -388,6 +395,62 @@ public class AdminServerApp extends JFrame {
 
         dialog.setVisible(true);
     }
+
+    public void addClientCard(String clientName, String hostname, String ip, String os, String username) {
+    SwingUtilities.invokeLater(() -> {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(PANEL);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER, 1),
+                BorderFactory.createEmptyBorder(12, 14, 12, 14)
+        ));
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+
+        JLabel nameLabel = new JLabel("▣  " + clientName);
+        nameLabel.setForeground(TEXT);
+        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+
+        JLabel statusLabel = new JLabel("● ONLINE");
+        statusLabel.setForeground(RED);
+        statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+
+        top.add(nameLabel, BorderLayout.WEST);
+        top.add(statusLabel, BorderLayout.EAST);
+
+        JLabel preview = new JLabel(
+                "<html><div style='text-align:center;color:#b0b0b0;'>"
+                        + "<div style='font-size:28px;color:#333333;'>▭</div>"
+                        + "CONNECTED CLIENT"
+                        + "</div></html>",
+                SwingConstants.CENTER
+        );
+        preview.setOpaque(true);
+        preview.setBackground(new Color(10, 12, 15));
+        preview.setForeground(MUTED);
+        preview.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        preview.setBorder(BorderFactory.createLineBorder(new Color(65, 65, 70), 1));
+
+        JPanel infoPanel = new JPanel(new GridLayout(2, 2, 10, 6));
+        infoPanel.setBackground(PANEL);
+        infoPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        infoPanel.add(createInfoLabel("◎ IP: " + ip, TEXT));
+        infoPanel.add(createInfoLabel("◈ User: " + username, RED));
+        infoPanel.add(createInfoLabel("▦ Host: " + hostname, TEXT));
+        infoPanel.add(createInfoLabel("◴ OS: " + os, TEXT));
+
+        card.add(top, BorderLayout.NORTH);
+        card.add(preview, BorderLayout.CENTER);
+        card.add(infoPanel, BorderLayout.SOUTH);
+
+        clientGrid.add(card);
+        clientGrid.revalidate();
+        clientGrid.repaint();
+    });
+}
 
     private JPanel createScreenTab() {
         JPanel panel = createBaseTabPanel();
@@ -771,23 +834,34 @@ public class AdminServerApp extends JFrame {
     }
 
     private void showBroadcastDialog() {
-        JOptionPane.showMessageDialog(
+        String message = JOptionPane.showInputDialog(
                 this,
-                "Broadcast message feature will send notification to all clients.",
+                "Enter broadcast message:",
                 "Broadcast",
-                JOptionPane.INFORMATION_MESSAGE
+                JOptionPane.PLAIN_MESSAGE
         );
-        addLog("[BROADCAST] Open broadcast dialog.");
+
+        if (message != null && message.trim().length() > 0) {
+            controller.broadcastMessage(message.trim());
+        }
     }
 
     private ImageIcon loadIcon(String fileName, int width, int height) {
-    ImageIcon icon = new ImageIcon("assets/icons/" + fileName);
+        String path = "assets/icons/" + fileName;
+        ImageIcon icon = new ImageIcon(path);
 
-    Image image = icon.getImage();
-    Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+        if (icon.getIconWidth() == -1) {
+            System.out.println("Khong tim thay icon: " + path);
+            System.out.println("Working Directory = " + System.getProperty("user.dir"));
+            return null;
+        }
 
-    return new ImageIcon(scaledImage);
+        Image image = icon.getImage();
+        Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+
+        return new ImageIcon(scaledImage);
     }
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
