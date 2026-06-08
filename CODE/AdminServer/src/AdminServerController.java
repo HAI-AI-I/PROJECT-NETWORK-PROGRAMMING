@@ -1,12 +1,18 @@
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+
 
 public class AdminServerController {
 
@@ -15,6 +21,7 @@ public class AdminServerController {
     private boolean serverRunning = false;
     private int clientCount = 0;
     private List<ClientHandler> clients = new ArrayList<ClientHandler>();
+    private List<Integer> freeClientNumbers = new ArrayList<Integer>();
 
     public AdminServerController(AdminServerApp ui) {
         this.ui = ui;
@@ -42,6 +49,7 @@ public class AdminServerController {
                     Socket socket = serverSocket.accept();
                     ClientHandler handler = new ClientHandler(socket);
                     clients.add(handler);
+                    ui.updateOnlineCount(clients.size());
                     Thread clientThread = new Thread(handler);
                     clientThread.start();
                 }
@@ -56,20 +64,30 @@ public class AdminServerController {
     }
 
     public void stopServer() {
-        try {
-            serverRunning = false;
-            for (int i = 0; i < clients.size(); i++) {
-                clients.get(i).close();
-            }
-            clients.clear();
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close();
-            }
-            ui.addLog("[SERVER] Server stopped.");
-        } catch (Exception e) {
-            ui.addLog("[SERVER] Error stopping server: " + e.getMessage());
+    try {
+        serverRunning = false;
+
+        for (int i = 0; i < clients.size(); i++) {
+            clients.get(i).close();
         }
+
+        clients.clear();
+        ui.updateOnlineCount(0);
+        clientCount = 0;
+        freeClientNumbers.clear();
+
+        if (serverSocket != null && !serverSocket.isClosed()) {
+            serverSocket.close();
+        }
+
+        ui.clearClientCards();
+
+        ui.addLog("[SERVER] Server stopped.");
+
+    } catch (Exception e) {
+        ui.addLog("[SERVER] Error stopping server: " + e.getMessage());
     }
+}
 
     public void broadcastMessage(String message) {
         if (clients.size() == 0) {
@@ -83,62 +101,101 @@ public class AdminServerController {
     }
 
     private class ClientHandler implements Runnable {
-        private Socket socket;
-        private BufferedReader reader;
-        private PrintWriter writer;
-        private String clientName = "Unknown Client";
+    private Socket socket;
+    private DataInputStream dis;
+    private DataOutputStream dos;
+    private String clientName = "Unknown Client";
+    private int clientNumber = 0;
 
-        public ClientHandler(Socket socket) {
-            this.socket = socket;
-        }
+    public ClientHandler(Socket socket) {
+        this.socket = socket;
+    }
 
-        public void run() {
-            try {
-                reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-                writer = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
+    public void run() {
+        try {
+            dis = new DataInputStream(socket.getInputStream());
+            dos = new DataOutputStream(socket.getOutputStream());
 
-                String message = reader.readLine();
-                if (message != null && message.startsWith("HELLO|")) {
-                    String[] parts = message.split("\\|");
-                    String hostname = parts.length > 1 ? parts[1] : "Unknown";
-                    String ip = parts.length > 2 ? parts[2] : socket.getInetAddress().getHostAddress();
-                    String os = parts.length > 3 ? parts[3] : "Unknown OS";
-                    String username = parts.length > 4 ? parts[4] : "Unknown User";
+            // Nhận thông tin đầu tiên từ client
+            String message = dis.readUTF();
 
-                    clientCount++;
-                    clientName = "CLIENT-" + String.format("%02d", clientCount);
-                    ui.addLog("[CLIENT] " + clientName + " connected from " + ip);
-                    ui.addClientCard(clientName, hostname, ip, os, username);
-                }
+            if (message.startsWith("HELLO|")) {
+                String[] parts = message.split("\\|");
 
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.equals("BYE")) {
-                        break;
-                    }
-                    ui.addLog("[" + clientName + "] " + line);
-                }
-            } catch (Exception e) {
-                ui.addLog("[CLIENT] " + clientName + " disconnected.");
-            } finally {
-                close();
-                clients.remove(this);
+                String hostname = parts.length > 1 ? parts[1] : "Unknown";
+                String ip = parts.length > 2 ? parts[2] : socket.getInetAddress().getHostAddress();
+                String os = parts.length > 3 ? parts[3] : "Unknown OS";
+                String username = parts.length > 4 ? parts[4] : "Unknown User";
+
+                clientNumber = getClientNumber();
+                clientName = "CLIENT-" + String.format("%02d", clientNumber);
+
+                ui.addLog("[CLIENT] " + clientName + " connected from " + ip);
+                ui.addClientCard(clientName, hostname, ip, os, username);
             }
-        }
 
-        public void sendMessage(String message) {
-            if (writer != null) {
-                writer.println(message);
-            }
-        }
+            // Nhận màn hình liên tục
+            while (true) {
+                int size = dis.readInt();
 
-        public void close() {
-            try {
-                if (socket != null && !socket.isClosed()) {
-                    socket.close();
+                byte[] data = new byte[size];
+                dis.readFully(data);
+
+                BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
+
+                if (image != null) {
+                    ui.updateClientScreen(clientName, image);
                 }
-            } catch (Exception ignored) {
+            }
+
+        } catch (Exception e) {
+            ui.addLog("[CLIENT] " + clientName + " disconnected.");
+        } finally {
+            close();
+            clients.remove(this);
+
+            ui.updateOnlineCount(clients.size());
+
+            if (!clientName.equals("Unknown Client")) {
+                ui.removeClientCard(clientName);
+            }
+            if (clientNumber > 0) {
+                freeClientNumbers.add(clientNumber);
             }
         }
     }
+    // Client cũ bay màu thì client mới thừa kế số client cũ.
+    private int getClientNumber() {
+    if (freeClientNumbers.size() > 0) {
+        Collections.sort(freeClientNumbers);
+        int number = freeClientNumbers.get(0);
+        freeClientNumbers.remove(0);
+        return number;
+    }
+
+    clientCount++;
+    return clientCount;
+    }
+
+    public void sendMessage(String message) {
+        try {
+            if (dos != null) {
+                dos.writeUTF(message);
+                dos.flush();
+            }
+        } catch (Exception e) {
+            ui.addLog("[SERVER] Cannot send message to " + clientName);
+        }
+    }
+
+    public void close() {
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        } catch (Exception ignored) {
+        }
+    }
 }
+}
+

