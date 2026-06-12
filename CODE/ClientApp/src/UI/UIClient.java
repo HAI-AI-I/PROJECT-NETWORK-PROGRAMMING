@@ -30,6 +30,31 @@ public class UIClient extends JFrame {
     private JButton connectButton;//nút bấm connect
     private JLabel statusLabel;//hiển thị trạng thái kết nối với server
 
+    private void startServerMessageListener() {
+    new Thread(() -> {
+        try {
+            while (socketClient != null && socketClient.isConnected()) {
+                String message = socketClient.getDis().readUTF();
+
+                if (message.startsWith("BROADCAST|")) {
+                    String text = message.substring("BROADCAST|".length());
+
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(
+                                UIClient.this,
+                                text,
+                                "Broadcast Message",
+                                JOptionPane.INFORMATION_MESSAGE
+                        );
+                    });
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[CLIENT] Dừng nhận tin nhắn từ server.");
+        }
+    }).start();
+}
+
     public UIClient() {
         setTitle(titleString);
         setSize(width,height);
@@ -175,6 +200,8 @@ public class UIClient extends JFrame {
                         statusLabel.setForeground(Color.GREEN);
                         connectButton.setText("DISCONNECT");
                         connectButton.setEnabled(true);
+
+                        startServerMessageListener();
                 
                         // TODO: Gọi SystemInfoService để thu thập thông tin máy gửi đi
                         // TODO: Kích hoạt CommandReceiver để ngồi hóng lệnh
