@@ -9,16 +9,19 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.net.SocketException;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
+
+import config.ConfigManager;
 
 
 public class AdminServerController {
 
     private AdminServerApp ui;
     private ServerSocket serverSocket;
-    private boolean serverRunning = false;
+    private volatile boolean serverRunning = false;
     private int clientCount = 0;
     private List<ClientHandler> clients = new ArrayList<ClientHandler>();
     private List<Integer> freeClientNumbers = new ArrayList<Integer>();
@@ -36,7 +39,7 @@ public class AdminServerController {
 
         Thread serverThread = new Thread(() -> {
             try {
-                int port = 1412;
+                int port = ConfigManager.getInt("server_port",1412);
                 serverSocket = new ServerSocket(port);
 
                 String localIp = InetAddress.getLocalHost().getHostAddress();
@@ -53,9 +56,18 @@ public class AdminServerController {
                     Thread clientThread = new Thread(handler);
                     clientThread.start();
                 }
+            } catch (SocketException e) {
+                if (serverRunning) {
+                    ui.addLog("[SERVER] Server error: " + e.getClass().getSimpleName());
+                    ui.addLog("[SERVER] Message: " + e.getMessage());
+                } else {
+                    ui.addLog("[SERVER] Server socket closed normally.");
+                }
             } catch (Exception e) {
                 if (serverRunning) {
-                    ui.addLog("[SERVER] Server error: " + e.getMessage());
+                    ui.addLog("[SERVER] Server error: " + e.getClass().getSimpleName());
+                    ui.addLog("[SERVER] Message: " + e.getMessage());
+                    e.printStackTrace();
                 }
             }
         });

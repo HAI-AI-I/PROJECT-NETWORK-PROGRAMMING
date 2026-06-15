@@ -9,7 +9,11 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
+
+import config.ConfigManager;
+
 import java.awt.image.BufferedImage;
+import java.io.File;
 
 public class AdminServerApp extends JFrame {
 
@@ -390,9 +394,7 @@ public class AdminServerApp extends JFrame {
         tabs.addTab("Webcam", createWebcamTab());
         tabs.addTab("Keylogger", createKeyloggerTab());
         tabs.addTab("Task Manager", createTaskManagerTab());
-        tabs.addTab("File Explorer", createFileExplorerTab());
         tabs.addTab("System Power", createPowerTab());
-        tabs.addTab("Broadcast", createBroadcastTab());
         tabs.addTab("Stress Test", createStressTestTab());
 
         dialog.add(title, BorderLayout.NORTH);
@@ -414,7 +416,13 @@ public class AdminServerApp extends JFrame {
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
 
-        JLabel nameLabel = new JLabel("▣  " + clientName);
+        JLabel nameLabel = new JLabel(clientName);
+
+        ImageIcon icon = loadIcon("computer.png", 20, 20);
+        if (icon != null) {
+            nameLabel.setIcon(icon);
+        }
+
         nameLabel.setForeground(TEXT);
         nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
 
@@ -658,61 +666,7 @@ public void removeClientCard(String clientName) {
         return panel;
     }
 
-    private JPanel createFileExplorerTab() {
-        JPanel panel = createBaseTabPanel();
-
-        DefaultMutableTreeNode root = new DefaultMutableTreeNode("Client Disk");
-        DefaultMutableTreeNode cDrive = new DefaultMutableTreeNode("C:\\");
-        DefaultMutableTreeNode users = new DefaultMutableTreeNode("Users");
-        DefaultMutableTreeNode admin = new DefaultMutableTreeNode("Admin");
-        DefaultMutableTreeNode documents = new DefaultMutableTreeNode("Documents");
-        DefaultMutableTreeNode downloads = new DefaultMutableTreeNode("Downloads");
-
-        root.add(cDrive);
-        cDrive.add(users);
-        users.add(admin);
-        admin.add(documents);
-        admin.add(downloads);
-
-        JTree tree = new JTree(root);
-        tree.setBackground(new Color(8, 9, 11));
-        tree.setForeground(TEXT);
-        tree.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        tree.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        JTextArea fileInfo = createDarkTextArea();
-        fileInfo.setText("Select a file or folder to view information.");
-
-        JSplitPane splitPane = new JSplitPane(
-                JSplitPane.HORIZONTAL_SPLIT,
-                createScroll(tree),
-                createScroll(fileInfo)
-        );
-        splitPane.setDividerLocation(300);
-        splitPane.setBackground(BG);
-        splitPane.setBorder(BorderFactory.createLineBorder(BORDER));
-
-        JPanel controlPanel = createControlPanel();
-        JButton refresh = createRedButton("Refresh");
-        JButton download = createDarkButton("Download");
-        JButton upload = createDarkButton("Upload");
-        JButton delete = createDarkButton("Delete");
-
-        refresh.addActionListener(e -> addLog("[FILE] Refresh file tree."));
-        download.addActionListener(e -> addLog("[FILE] Download file from client."));
-        upload.addActionListener(e -> addLog("[FILE] Upload file to client."));
-        delete.addActionListener(e -> addLog("[FILE] Delete selected file."));
-
-        controlPanel.add(refresh);
-        controlPanel.add(download);
-        controlPanel.add(upload);
-        controlPanel.add(delete);
-
-        panel.add(splitPane, BorderLayout.CENTER);
-        panel.add(controlPanel, BorderLayout.SOUTH);
-
-        return panel;
-    }
+    
 
     private JPanel createPowerTab() {
         JPanel panel = new JPanel(new GridLayout(2, 2, 20, 20));
@@ -938,20 +892,55 @@ public void removeClientCard(String clientName) {
     }
 
     private ImageIcon loadIcon(String fileName, int width, int height) {
-        String path = "assets/icons/" + fileName;
-        ImageIcon icon = new ImageIcon(path);
+    String[] paths = {
+            "assets/icons/" + fileName,
+            "CODE/AdminServer/assets/icons/" + fileName,
+            "../assets/icons/" + fileName
+    };
 
-        if (icon.getIconWidth() == -1) {
-            System.out.println("Khong tim thay icon: " + path);
-            System.out.println("Working Directory = " + System.getProperty("user.dir"));
-            return null;
+    for (int i = 0; i < paths.length; i++) {
+        File file = new File(paths[i]);
+
+        if (file.exists()) {
+            ImageIcon icon = new ImageIcon(file.getAbsolutePath());
+
+            Image image = icon.getImage();
+            Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+
+            return new ImageIcon(scaledImage);
+        }
+    }
+
+    try {
+        File classPath = new File(
+                AdminServerApp.class
+                        .getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI()
+        );
+
+        File projectFolder = classPath.getParentFile();
+        File iconFile = new File(projectFolder, "assets/icons/" + fileName);
+
+        if (iconFile.exists()) {
+            ImageIcon icon = new ImageIcon(iconFile.getAbsolutePath());
+
+            Image image = icon.getImage();
+            Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+
+            return new ImageIcon(scaledImage);
         }
 
-        Image image = icon.getImage();
-        Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
-
-        return new ImageIcon(scaledImage);
+    } catch (Exception e) {
+        System.out.println("Loi khi tim icon: " + e.getMessage());
     }
+
+    System.out.println("Khong tim thay icon: " + fileName);
+    System.out.println("Working Directory = " + System.getProperty("user.dir"));
+
+    return null;
+}
 
     // Hàm này sẽ được gọi khi người dùng double-click vào client
     private void openBigScreen(String clientName) {

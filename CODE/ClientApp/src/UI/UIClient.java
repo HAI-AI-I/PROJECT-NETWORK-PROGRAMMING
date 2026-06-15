@@ -1,6 +1,7 @@
 package UI;
 // giao diện của client
 
+import config.ClientConfig; // file config để load các thông số mặc định như IP và Port của server
 import java.awt.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -131,13 +132,16 @@ public class UIClient extends JFrame {
         ipLabel.setForeground(TEXT);
         ipLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         
-        ipField = createTextField("127.0.0.1");
-
+        ipField = createTextField(
+                ClientConfig.getString("server.ip", "127.0.0.1")
+        );
         JLabel portLabel = new JLabel("Port:");
         portLabel.setForeground(TEXT);
         portLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         
-        portField = createTextField("9999");
+        portField = createTextField(
+        ClientConfig.getString("server.port", "1412")
+);
 
         inputPanel.add(ipLabel);
         inputPanel.add(ipField);
