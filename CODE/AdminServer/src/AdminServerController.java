@@ -210,4 +210,7 @@ public class AdminServerController {
     }
 }
 }
-
+// Hàm lấy tên Client
+public String getClientName() {
+    return clientName;
+}
