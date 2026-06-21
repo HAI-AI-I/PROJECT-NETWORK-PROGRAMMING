@@ -111,6 +111,20 @@ public class AdminServerController {
         }
         ui.addLog("[SERVER] Sent message to " + clients.size() + " client(s): " + message);
     }
+    public void sendStressCommand(String clientName, String command) {
+
+    for (ClientHandler client : clients) {
+
+        if (client.getClientName().equals(clientName)) {
+
+            client.sendMessage("STRESS|" + command);
+
+            ui.addLog("[STRESS] Sent " + command + " to " + clientName);
+
+            break;
+        }
+    }
+}
 
     private class ClientHandler implements Runnable {
     private Socket socket;
@@ -188,6 +202,9 @@ public class AdminServerController {
     clientCount++;
     return clientCount;
     }
+        public String getClientName() {
+    return clientName;
+}
 
     public void sendMessage(String message) {
         try {
