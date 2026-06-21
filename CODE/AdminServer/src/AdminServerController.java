@@ -1,4 +1,3 @@
-import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -12,7 +11,6 @@ import java.util.List;
 import java.net.SocketException;
 
 import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
 
 import config.ConfigManager;
 
@@ -26,8 +24,16 @@ public class AdminServerController {
     private List<ClientHandler> clients = new ArrayList<ClientHandler>();
     private List<Integer> freeClientNumbers = new ArrayList<Integer>();
 
+    private ServerSocket taskServerSocket;
+    private Socket taskSocket;
+
     public AdminServerController(AdminServerApp ui) {
         this.ui = ui;
+    }
+    //1
+    public Socket getTaskSocket() {
+    System.out.println("getTaskSocket = " + taskSocket);
+    return taskSocket;
     }
 
     public void startServer() {
@@ -36,11 +42,34 @@ public class AdminServerController {
             return;
         }
         serverRunning = true;
-
+        //2
         Thread serverThread = new Thread(() -> {
             try {
-                int port = ConfigManager.getInt("server_port",1412);
+                int port = ConfigManager.getInt("server_port", 1412);
+                int taskPort = 1413;
+
                 serverSocket = new ServerSocket(port);
+                taskServerSocket = new ServerSocket(taskPort);
+
+                ui.addLog("[SERVER] Screen port: " + port);
+                ui.addLog("[SERVER] Task port: " + taskPort);
+
+                // Task Manager thread
+                new Thread(() -> {
+                    try {
+                        while (serverRunning) {
+                            Socket socket = taskServerSocket.accept();
+                        
+                            taskSocket = socket;
+
+                            System.out.println("Task client connected: "
+                                    + socket.getInetAddress()
+                                 + ":" + socket.getPort());
+                        }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
 
                 String localIp = InetAddress.getLocalHost().getHostAddress();
 

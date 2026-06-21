@@ -11,9 +11,12 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import config.ConfigManager;
+import service.taskmanager.TaskManagerService;
+import ui.taskmanager.TaskManagerPanel;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.net.Socket;
 
 public class AdminServerApp extends JFrame {
 
@@ -1048,8 +1051,23 @@ public void removeClientCard(String clientName) {
     });
 
     taskBtn.addActionListener(e -> {
-        addLog("[TASK] Open task manager for " + clientName);
-    });
+
+    Socket socket = controller.getTaskSocket();
+
+    if (socket == null) {
+        JOptionPane.showMessageDialog(this, "Chưa có client!");
+        return;
+    }
+
+    TaskManagerService service = new TaskManagerService(socket);
+
+    JFrame frame = new JFrame("Task Manager - " + clientName);
+    frame.setContentPane(new TaskManagerPanel(service));
+    frame.setSize(700, 450);
+    frame.setLocationRelativeTo(this);
+    frame.setVisible(true);
+
+});
 
 
     powerBtn.addActionListener(e -> {
