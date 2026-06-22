@@ -11,12 +11,9 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import config.ConfigManager;
-import service.taskmanager.TaskManagerService;
-import ui.taskmanager.TaskManagerPanel;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.net.Socket;
 
 public class AdminServerApp extends JFrame {
 
@@ -1051,27 +1048,13 @@ public void removeClientCard(String clientName) {
     });
 
     taskBtn.addActionListener(e -> {
-
-    Socket socket = controller.getTaskSocket();
-
-    if (socket == null) {
-        JOptionPane.showMessageDialog(this, "Chưa có client!");
-        return;
-    }
-
-    TaskManagerService service = new TaskManagerService(socket);
-
-    JFrame frame = new JFrame("Task Manager - " + clientName);
-    frame.setContentPane(new TaskManagerPanel(service));
-    frame.setSize(700, 450);
-    frame.setLocationRelativeTo(this);
-    frame.setVisible(true);
-
-});
+        addLog("[TASK] Open task manager for " + clientName);
+    });
 
 
     powerBtn.addActionListener(e -> {
         addLog("[POWER] Open power control for " + clientName);
+        openPowerControlDialog(clientName);
     });
 
 
@@ -1089,6 +1072,89 @@ public void removeClientCard(String clientName) {
 
     dialog.setVisible(true);
 }
+
+    private void openPowerControlDialog(String clientName) {
+        JDialog dialog = new JDialog(this, "Power Control - " + clientName, true);
+        dialog.setSize(450, 350);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+        dialog.getContentPane().setBackground(BG);
+
+        JLabel title = new JLabel("  POWER CONTROL - " + clientName);
+        title.setForeground(TEXT);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setOpaque(true);
+        title.setBackground(BG);
+        title.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 1, 1, 1, RED),
+                BorderFactory.createEmptyBorder(12, 14, 12, 14)
+        ));
+
+        JPanel panel = new JPanel(new GridLayout(2, 2, 15, 15));
+        panel.setBackground(BG);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JButton lockBtn = createRedButton("Lock Screen");
+        JButton restartBtn = createRedButton("Restart");
+        JButton shutdownBtn = createRedButton("Shutdown");
+        JButton sleepBtn = createRedButton("Sleep");
+
+        lockBtn.addActionListener(ev -> {
+            controller.sendPowerCommand(clientName, "LOCK");
+            dialog.dispose();
+        });
+
+        restartBtn.addActionListener(ev -> {
+            int choice = JOptionPane.showConfirmDialog(
+                    dialog,
+                    "Bạn có chắc chắn muốn Restart máy trạm " + clientName + "?",
+                    "Xác nhận Restart",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+            );
+            if (choice == JOptionPane.YES_OPTION) {
+                controller.sendPowerCommand(clientName, "RESTART");
+                dialog.dispose();
+            }
+        });
+
+        shutdownBtn.addActionListener(ev -> {
+            int choice = JOptionPane.showConfirmDialog(
+                    dialog,
+                    "Bạn có chắc chắn muốn Shutdown máy trạm " + clientName + "?",
+                    "Xác nhận Shutdown",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+            );
+            if (choice == JOptionPane.YES_OPTION) {
+                controller.sendPowerCommand(clientName, "SHUTDOWN");
+                dialog.dispose();
+            }
+        });
+
+        sleepBtn.addActionListener(ev -> {
+            int choice = JOptionPane.showConfirmDialog(
+                    dialog,
+                    "Bạn có chắc chắn muốn cho máy trạm " + clientName + " vào chế độ Sleep?",
+                    "Xác nhận Sleep",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (choice == JOptionPane.YES_OPTION) {
+                controller.sendPowerCommand(clientName, "SLEEP");
+                dialog.dispose();
+            }
+        });
+
+        panel.add(lockBtn);
+        panel.add(restartBtn);
+        panel.add(shutdownBtn);
+        panel.add(sleepBtn);
+
+        dialog.add(title, BorderLayout.NORTH);
+        dialog.add(panel, BorderLayout.CENTER);
+        dialog.setVisible(true);
+    }
 
 
     public static void main(String[] args) {
