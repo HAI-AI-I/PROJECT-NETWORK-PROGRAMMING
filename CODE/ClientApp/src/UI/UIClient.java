@@ -3,7 +3,9 @@ package UI;
 
 import config.ClientConfig; // file config để load các thông số mặc định như IP và Port của server
 import java.awt.*;
+import java.io.DataOutputStream;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import javax.swing.*;
 import network.Screen;
@@ -31,30 +33,7 @@ public class UIClient extends JFrame {
     private JButton connectButton;//nút bấm connect
     private JLabel statusLabel;//hiển thị trạng thái kết nối với server
 
-    private void startServerMessageListener() {
-    new Thread(() -> {
-        try {
-            while (socketClient != null && socketClient.isConnected()) {
-                String message = socketClient.getDis().readUTF();
-
-                if (message.startsWith("BROADCAST|")) {
-                    String text = message.substring("BROADCAST|".length());
-
-                    SwingUtilities.invokeLater(() -> {
-                        JOptionPane.showMessageDialog(
-                                UIClient.this,
-                                text,
-                                "Broadcast Message",
-                                JOptionPane.INFORMATION_MESSAGE
-                        );
-                    });
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("[CLIENT] Dừng nhận tin nhắn từ server.");
-        }
-    }).start();
-}
+   
 
     public UIClient() {
         setTitle(titleString);
@@ -70,6 +49,16 @@ public class UIClient extends JFrame {
         add(Center(),BorderLayout.CENTER);
         add(Footer(),BorderLayout.SOUTH);
     }
+
+    private String getClientId() {
+    try {
+        String hostname = java.net.InetAddress.getLocalHost().getHostName();
+        String ip = java.net.InetAddress.getLocalHost().getHostAddress();
+        return hostname + "-" + ip;
+    } catch (Exception e) {
+        return "UNKNOWN";
+    }
+}
 
     // 1. KHU VỰC HEADER (Tiêu đề)
     private JPanel Header() {
@@ -213,7 +202,8 @@ public class UIClient extends JFrame {
 
                         Screen screenStreamService = new Screen(socketClient.getDos());
                         screenStreamService.start();
-                    } else {
+                    } 
+                    else {
                         statusLabel.setText("● STATUS: CONNECTION FAILED!");
                         statusLabel.setForeground(RED);
                         connectButton.setEnabled(true);
@@ -299,6 +289,63 @@ public class UIClient extends JFrame {
         label.setForeground(TEXT);
         label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         return label;
+    }
+
+    private void startServerMessageListener() {
+        new Thread(() -> {
+            try {
+                while (socketClient != null && socketClient.isConnected()) {
+                    String message = socketClient.getDis().readUTF();
+                    System.out.println("[CLIENT] Received: " + message);
+
+                    if (message.startsWith("BROADCAST|")) {
+                        String text = message.substring("BROADCAST|".length());
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(UIClient.this, text, "Broadcast", JOptionPane.INFORMATION_MESSAGE);
+                        });
+                    }
+                    else if (message.equals("WEBCAM_START")) {
+                        new Thread(() -> {
+                            try {
+                                Socket ws = new Socket(socketClient.getServerIp(), 1413);
+                                DataOutputStream dos = new DataOutputStream(ws.getOutputStream());
+                                dos.writeUTF(socketClient.getClientName());
+                                dos.flush();
+                                new features.WebcamClientDemo().startWebcamStream(ws);
+                            } catch (Exception ex) {
+                                System.out.println("[WEBCAM-CLIENT] ERROR: " + ex.getMessage());
+                            }
+                        }).start();
+                    }
+                    else if (message.equals("TASK_MANAGER_START")) {
+                        new Thread(() -> {
+                            try {
+                                Socket ts = new Socket(socketClient.getServerIp(), 1414);
+                                DataOutputStream dos = new DataOutputStream(ts.getOutputStream());
+                                dos.writeUTF(socketClient.getClientName());
+                                dos.flush();
+                                features.taskmanager.TaskCommandHandler handler = new features.taskmanager.TaskCommandHandler(ts);
+                                new Thread(handler).start();
+                            } catch (Exception ex) {
+                                System.out.println("[TASK-CLIENT] ERROR: " + ex.getMessage());
+                            }
+                        }).start();
+                    }
+                    else if (message.equals("GET_PROCESS_LIST")) {
+                        System.out.println("[CLIENT] Server requesting process list");
+                    }
+                    else if (message.startsWith("KILL_PROCESS|")) {
+                        String pid = message.substring("KILL_PROCESS|".length());
+                        new features.taskmanager.ProcessService().killProcess(pid);
+                    }
+                    else {
+                        System.out.println("[CLIENT] Unknown: " + message);
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("[CLIENT] Stopped: " + e.getMessage());
+            }
+        }).start();
     }
 
     // Hàm Main khởi động để test thử UI
