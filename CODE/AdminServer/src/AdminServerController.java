@@ -111,6 +111,16 @@ public class AdminServerController {
         for (int i = 0; i < clients.size(); i++) {
             clients.get(i).close();
         }
+        public void sendPowerCommand(String clientName, String command) {
+    for (ClientHandler client : clients) {
+        if (client.clientName.equals(clientName)) {
+            client.sendMessage("POWER|" + command);
+            ui.addLog("[SERVER] Sent " + command + " command to " + clientName);
+            return;
+        }
+    }
+}
+        
 
         clients.clear();
         ui.updateOnlineCount(0);
