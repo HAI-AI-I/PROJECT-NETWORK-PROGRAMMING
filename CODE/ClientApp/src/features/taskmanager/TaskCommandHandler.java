@@ -41,7 +41,7 @@ public class TaskCommandHandler implements Runnable {
                         ps.killProcess(pid);
                         
                         // ← QUAN TRỌNG: Gửi process list lại sau khi kill
-                        Thread.sleep(500); // Chờ process thực sự bị kill
+                        Thread.sleep(200); // Chờ process thực sự bị kill
                         sendProcessList();
                     }
                 } catch (Exception e) {
@@ -54,19 +54,21 @@ public class TaskCommandHandler implements Runnable {
     }
 
     private void sendProcessList() {
-        try {
-            List<String[]> list = ps.getProcessList();
-            System.out.println("[TASK-HANDLER] Sending " + list.size() + " processes");
-            
-            dos.writeInt(list.size());
-            for (String[] p : list) {
-                dos.writeUTF(p[0]);
-                dos.writeUTF(p[1]);
-                dos.writeUTF(p[2]);
-            }
-            dos.flush();
-        } catch (Exception ex) {
-            System.out.println("[TASK-HANDLER] Error: " + ex.getMessage());
+    try {
+        List<String[]> list = ps.getProcessList();
+        System.out.println("[TASK-HANDLER] Sending " + list.size() + " processes");
+        
+        // ← Gửi nhanh trong 1 data block
+        dos.writeInt(list.size());
+        for (String[] p : list) {
+            dos.writeUTF(p[0]);
+            dos.writeUTF(p[1]);
+            dos.writeUTF(p[2]);
         }
+        dos.flush();
+        System.out.println("[TASK-HANDLER] Sent!");
+    } catch (Exception ex) {
+        System.out.println("[TASK-HANDLER] Error: " + ex.getMessage());
     }
+}
 }

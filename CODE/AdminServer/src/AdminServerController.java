@@ -195,32 +195,49 @@ public void sendTaskCommand(String clientName, String command) {
             System.out.println("[TASK] Server listening on port " + taskPort);
 
             while (true) {
-                Socket clientSocket = taskServerSocket.accept();
-                System.out.println("[TASK] Client connected");
+                try {
+                    Socket clientSocket = taskServerSocket.accept();
+                    clientSocket.setSoTimeout(30000); // ← Timeout 30 giây
+                    
+                    System.out.println("[TASK] Client connected from " + clientSocket.getInetAddress());
 
-                new Thread(() -> {
-                    try {
-                        DataInputStream dis = new DataInputStream(clientSocket.getInputStream());
-                        String clientId = dis.readUTF();
-                        System.out.println("[TASK] ClientId: " + clientId);
+                    // ← Chạy trong thread riêng (không block accept() lần tiếp)
+                    new Thread(() -> {
+                        try {
+                            DataInputStream dis = new DataInputStream(clientSocket.getInputStream());
+                            String clientId = dis.readUTF();
+                            System.out.println("[TASK] ClientId: " + clientId);
 
-                        JTable table = taskTables.get(clientId);
-                        DefaultTableModel model = taskModels.get(clientId);
+                            JTable table = taskTables.get(clientId);
+                            DefaultTableModel model = taskModels.get(clientId);
 
-                        if (table == null || model == null) {
-                            System.out.println("[TASK] Table not found for " + clientId);
-                            clientSocket.close();
-                            return;
+                            if (table == null || model == null) {
+                                System.out.println("[TASK] Table not found for " + clientId);
+                                clientSocket.close();
+                                return;
+                            }
+
+                            System.out.println("[TASK] Starting handler for " + clientId);
+                            new TaskManagerServerDemo(table, model).handleTaskManager(clientSocket);
+
+                        } catch (java.net.SocketTimeoutException e) {
+                            System.out.println("[TASK] Timeout for client");
+                        } catch (Exception e) {
+                            System.out.println("[TASK] Error: " + e.getMessage());
+                        } finally {
+                            try {
+                                clientSocket.close();
+                            } catch (Exception e) {
+                            }
                         }
+                    }).start();
 
-                        new TaskManagerServerDemo(table, model).handleTaskManager(clientSocket);
-                    } catch (Exception e) {
-                        System.out.println("[TASK] Error: " + e.getMessage());
-                    }
-                }).start();
+                } catch (Exception e) {
+                    System.out.println("[TASK] Accept error: " + e.getMessage());
+                }
             }
         } catch (Exception e) {
-            System.out.println("[TASK] Error: " + e.getMessage());
+            System.out.println("[TASK] Server error: " + e.getMessage());
         }
     }).start();
 }
