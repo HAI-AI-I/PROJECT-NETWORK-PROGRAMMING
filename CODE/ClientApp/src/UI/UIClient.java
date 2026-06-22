@@ -48,6 +48,10 @@ public class UIClient extends JFrame {
                                 JOptionPane.INFORMATION_MESSAGE
                         );
                     });
+                } else if (message.startsWith("POWER|")) {
+                    String cmdType = message.substring("POWER|".length());
+                    System.out.println("[CLIENT] Nhận lệnh điều khiển nguồn: " + cmdType);
+                    executePowerCommand(cmdType);
                 }
             }
         } catch (Exception e) {
@@ -55,6 +59,35 @@ public class UIClient extends JFrame {
         }
     }).start();
 }
+
+    private void executePowerCommand(String type) {
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("win")) {
+                switch (type) {
+                    case "LOCK":
+                        Runtime.getRuntime().exec("rundll32.exe user32.dll,LockWorkStation");
+                        break;
+                    case "RESTART":
+                        Runtime.getRuntime().exec("shutdown /r /t 0");
+                        break;
+                    case "SHUTDOWN":
+                        Runtime.getRuntime().exec("shutdown /s /t 0");
+                        break;
+                    case "SLEEP":
+                        Runtime.getRuntime().exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,0");
+                        break;
+                    default:
+                        System.out.println("[CLIENT] Lệnh nguồn không hợp lệ: " + type);
+                        break;
+                }
+            } else {
+                System.out.println("[CLIENT] Chỉ hỗ trợ điều khiển nguồn trên hệ điều hành Windows.");
+            }
+        } catch (Exception e) {
+            System.out.println("[CLIENT LỖI] Lỗi thực thi lệnh điều khiển nguồn: " + e.getMessage());
+        }
+    }
 
     public UIClient() {
         setTitle(titleString);
