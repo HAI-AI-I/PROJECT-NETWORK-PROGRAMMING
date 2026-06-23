@@ -3,6 +3,7 @@ package main;
 import java.net.Socket;
 import service.taskmanager.TaskCommandHandler;
 import UI.UIClient;
+import config.ClientConfig;
 
 public class ClientStart {
 
@@ -12,9 +13,11 @@ public class ClientStart {
         new UIClient().run();
         // network chạy riêng
         new Thread(() -> {
+            String ipServer=ClientConfig.getString("server.ip","172.0.0.1");
+            int portServer=ClientConfig.getInt("server.port",1412);
             try {
-
-                Socket screenSocket = new Socket("localhost", 1412);
+                
+                Socket screenSocket = new Socket(ipServer,portServer);
                 System.out.println("Screen connected");
 
                 new Thread(new ScreenHandler(screenSocket)).start();

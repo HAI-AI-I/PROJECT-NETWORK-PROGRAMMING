@@ -9,13 +9,14 @@ public class ClientConfig {
 
     static {
         try {
-            FileInputStream fis = new FileInputStream("config.properties");
+            FileInputStream fis = new FileInputStream("CODE/ClientApp/src/config/config.properties");
             properties.load(fis);
             fis.close();
 
             System.out.println("[CONFIG] Loaded config.properties");
 
         } catch (Exception e) {
+            e.printStackTrace();
             System.out.println("[CONFIG] Cannot load config.properties. Using default values.");
         }
     }
