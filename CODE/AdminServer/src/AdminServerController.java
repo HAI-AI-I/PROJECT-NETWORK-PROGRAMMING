@@ -124,69 +124,69 @@ public class AdminServerController {
     }
 
     private class ClientHandler implements Runnable {
-    private Socket socket;
-    private DataInputStream dis;
-    private DataOutputStream dos;
-    private String clientName = "Unknown Client";
-    private int clientNumber = 0;
+        private Socket socket;
+        private DataInputStream dis;
+        private DataOutputStream dos;
+        private String clientName = "Unknown Client";
+        private int clientNumber = 0;
 
-    public ClientHandler(Socket socket) {
-        this.socket = socket;
-    }
+        public ClientHandler(Socket socket) {
+            this.socket = socket;
+        }
 
-    public void run() {
-        try {
-            dis = new DataInputStream(socket.getInputStream());
-            dos = new DataOutputStream(socket.getOutputStream());
+        public void run() {
+            try {
+                dis = new DataInputStream(socket.getInputStream());
+                dos = new DataOutputStream(socket.getOutputStream());
 
-            // Nhận thông tin đầu tiên từ client
-            String message = dis.readUTF();
+                // Nhận thông tin đầu tiên từ client
+                String message = dis.readUTF();
 
-            if (message.startsWith("HELLO|")) {
-                String[] parts = message.split("\\|");
+                if (message.startsWith("HELLO|")) {
+                    String[] parts = message.split("\\|");
 
-                String hostname = parts.length > 1 ? parts[1] : "Unknown";
-                String ip = parts.length > 2 ? parts[2] : socket.getInetAddress().getHostAddress();
-                String os = parts.length > 3 ? parts[3] : "Unknown OS";
-                String username = parts.length > 4 ? parts[4] : "Unknown User";
+                    String hostname = parts.length > 1 ? parts[1] : "Unknown";
+                    String ip = parts.length > 2 ? parts[2] : socket.getInetAddress().getHostAddress();
+                    String os = parts.length > 3 ? parts[3] : "Unknown OS";
+                    String username = parts.length > 4 ? parts[4] : "Unknown User";
 
-                clientNumber = getClientNumber();
-                clientName = "CLIENT-" + String.format("%02d", clientNumber);
+                    clientNumber = getClientNumber();
+                    clientName = "CLIENT-" + String.format("%02d", clientNumber);
 
-                ui.addLog("[CLIENT] " + clientName + " connected from " + ip);
-                ui.addClientCard(clientName, hostname, ip, os, username);
-            }
+                    ui.addLog("[CLIENT] " + clientName + " connected from " + ip);
+                    ui.addClientCard(clientName, hostname, ip, os, username);
+                }
 
-            // Nhận màn hình liên tục
-            while (true) {
-                int size = dis.readInt();
+                // Nhận màn hình liên tục
+                while (true) {
+                    int size = dis.readInt();
 
-                byte[] data = new byte[size];
-                dis.readFully(data);
+                    byte[] data = new byte[size];
+                    dis.readFully(data);
 
-                BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
+                    BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
 
-                if (image != null) {
-                    ui.updateClientScreen(clientName, image);
+                    if (image != null) {
+                        ui.updateClientScreen(clientName, image);
+                    }
+                }
+
+            } catch (Exception e) {
+                ui.addLog("[CLIENT] " + clientName + " disconnected.");
+            } finally {
+                close();
+                clients.remove(this);
+
+                ui.updateOnlineCount(clients.size());
+
+                if (!clientName.equals("Unknown Client")) {
+                    ui.removeClientCard(clientName);
+                }
+                if (clientNumber > 0) {
+                    freeClientNumbers.add(clientNumber);
                 }
             }
-
-        } catch (Exception e) {
-            ui.addLog("[CLIENT] " + clientName + " disconnected.");
-        } finally {
-            close();
-            clients.remove(this);
-
-            ui.updateOnlineCount(clients.size());
-
-            if (!clientName.equals("Unknown Client")) {
-                ui.removeClientCard(clientName);
-            }
-            if (clientNumber > 0) {
-                freeClientNumbers.add(clientNumber);
-            }
         }
-    }
     // Client cũ bay màu thì client mới thừa kế số client cũ.
     private int getClientNumber() {
     if (freeClientNumbers.size() > 0) {
