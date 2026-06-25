@@ -35,6 +35,9 @@ public class UIClient extends JFrame {
         try {
             while (socketClient != null && socketClient.isConnected()) {
                 String message = socketClient.getDis().readUTF();
+                
+                // Dòng này giúp in log ra màn hình để ông biết Server gửi gì tới
+                System.out.println("[DEBUG CLIENT] Lệnh từ Server bay tới: " + message);
 
                 if (message.startsWith("BROADCAST|")) {
                     String text = message.substring("BROADCAST|".length());
@@ -47,6 +50,14 @@ public class UIClient extends JFrame {
                                 JOptionPane.INFORMATION_MESSAGE
                         );
                     });
+                } 
+                // ---> ĐÂY! ĐOẠN NÀY LÀ ĐỂ BẮT LỆNH MỞ WEBCAM NÈ <---
+                else if (message.equals("OPEN_WEBCAM")) {
+                    System.out.println("[WEBCAM HANDLER] Đang thực thi lệnh mở camera...");
+                    
+                    // Gọi hàm xử lý webcam từ class WebcamCommandHandler của ông
+                    service.webcam.WebcamCommandHandler webcamHandler = new service.webcam.WebcamCommandHandler(socketClient.getSocket());
+                    webcamHandler.processCommand(message);
                 }
             }
         } catch (Exception e) {

