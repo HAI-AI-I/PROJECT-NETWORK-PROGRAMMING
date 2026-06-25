@@ -10,6 +10,9 @@ public class SocketClient {
     private Socket socket;
     private DataOutputStream dos;
     private DataInputStream dis;
+    private String serverIp;
+    private String clientName;
+
 
     // Hàm thực hiện đâm kết nối tới Server
     public boolean connectServer(String ip, int port) {
@@ -20,6 +23,7 @@ public class SocketClient {
         
         try {
             socket = new Socket(ip, port);
+            this.serverIp = ip;
             dos = new DataOutputStream(socket.getOutputStream());
             dis = new DataInputStream(socket.getInputStream());
             
@@ -31,6 +35,12 @@ public class SocketClient {
 
             dos.writeUTF("HELLO|" + hostname + "|" + LocalIP + "|" + osName + "|" + username);
             dos.flush();
+
+            String response = dis.readUTF();
+        if (response.startsWith("CLIENT_NAME|")) {
+            this.clientName = response.substring("CLIENT_NAME|".length());
+            System.out.println("[NETWORK] Server assigned: " + clientName);
+        }
 
             System.out.println("[NETWORK] Kết nối thành công tới Server: " + ip);
             return true;
@@ -49,6 +59,15 @@ public class SocketClient {
     public Socket getSocket() { return socket; }
     public DataOutputStream getDos() { return dos; }
     public DataInputStream getDis() { return dis; }
+
+    public String getServerIp() {
+    return serverIp;
+    }
+
+    public String getClientName() {
+        return clientName;
+    }
+
 
     // Hàm ngắt kết nối
     public void disconnect() {
