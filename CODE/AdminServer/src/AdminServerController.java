@@ -251,7 +251,6 @@ public void sendTaskCommand(String clientName, String command) {
         } catch (Exception e) {
             System.out.println("[TASK] Server error: " + e.getMessage());
         }
-        }
     }).start();
 }
 
