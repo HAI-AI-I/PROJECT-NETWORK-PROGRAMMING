@@ -52,8 +52,8 @@ public class SocketClient {
     }
     // Hàm kiểm tra trạng thái kết nối
     public boolean isConnected() {
-    return socket != null && socket.isConnected() && !socket.isClosed();
-}
+        return socket != null && socket.isConnected() && !socket.isClosed();
+    }
 
     // Các hàm Getters để các Service khác (như ScreenStream, Process) lấy phễu gửi/nhận dữ liệu
     public Socket getSocket() { return socket; }

