@@ -172,6 +172,18 @@ public void startWebcamServer() {
     ui.addLog("[SERVER] Client " + clientName + " not found.");
 }
 
+public void sendPowerCommand(String clientName, String command) {
+    for (ClientHandler client : clients) {
+        if (client.clientName.equals(clientName)) {
+            client.sendMessage("POWER|" + command);
+            ui.addLog("[SERVER] Sent " + command + " command to " + clientName);
+            return;
+        }
+    }
+    ui.addLog("[SERVER] Client " + clientName + " not found to send power command.");
+}
+
+
 public void sendTaskCommand(String clientName, String command) {
     // Forward lệnh tới task server qua main socket
     // Client sẽ relay qua task socket
@@ -238,6 +250,7 @@ public void sendTaskCommand(String clientName, String command) {
             }
         } catch (Exception e) {
             System.out.println("[TASK] Server error: " + e.getMessage());
+        }
         }
     }).start();
 }
