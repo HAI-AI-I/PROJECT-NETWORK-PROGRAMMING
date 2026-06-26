@@ -1,6 +1,6 @@
 package config;
 
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.Properties;
 
 public class ClientConfig {
@@ -8,32 +8,36 @@ public class ClientConfig {
     private static Properties properties = new Properties();
 
     static {
-        try {
-            FileInputStream fis = new FileInputStream("CODE/ClientApp/src/config/config.properties");
-            properties.load(fis);
-            fis.close();
+        loadConfig();
+    }
 
-            System.out.println("[CONFIG] Loaded config.properties");
+    private static void loadConfig() {
+        try {
+            InputStream input = ClientConfig.class.getResourceAsStream("/config/client.properties");
+
+            if (input == null) {
+                System.out.println("[CONFIG] Cannot find client.properties. Using defaults.");
+                return;
+            }
+
+            properties.load(input);
+            input.close();
+            System.out.println("[CONFIG] Loaded client.properties");
 
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("[CONFIG] Cannot load config.properties. Using default values.");
+            System.out.println("[CONFIG] Error loading config: " + e.getMessage());
         }
     }
 
     public static String getString(String key, String defaultValue) {
         String value = properties.getProperty(key);
-
-        if (value == null || value.trim().length() == 0) {
-            return defaultValue;
-        }
-
-        return value;
+        return (value == null || value.trim().isEmpty()) ? defaultValue : value;
     }
 
     public static int getInt(String key, int defaultValue) {
         try {
-            return Integer.parseInt(properties.getProperty(key));
+            String value = properties.getProperty(key);
+            return (value == null || value.trim().isEmpty()) ? defaultValue : Integer.parseInt(value);
         } catch (Exception e) {
             return defaultValue;
         }

@@ -1,3 +1,6 @@
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+import features.WebcamServerDemo;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -10,9 +13,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.net.SocketException;
+import features.TaskManagerServerDemo;
+import javax.swing.JTable;
+import javax.swing.table.DefaultTableModel;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
+import javax.swing.JLabel;
 
 import config.ConfigManager;
 
@@ -24,7 +31,12 @@ public class AdminServerController {
     private volatile boolean serverRunning = false;
     private int clientCount = 0;
     private List<ClientHandler> clients = new ArrayList<ClientHandler>();
+    private ServerSocket webcamServerSocket;
+    private Map<String, JLabel> webcamLabels = new ConcurrentHashMap<>();
     private List<Integer> freeClientNumbers = new ArrayList<Integer>();
+    private ServerSocket taskServerSocket;
+    private Map<String, JTable> taskTables = new ConcurrentHashMap<>();
+    private Map<String, DefaultTableModel> taskModels = new ConcurrentHashMap<>();
 
     public AdminServerController(AdminServerApp ui) {
         this.ui = ui;
@@ -73,6 +85,8 @@ public class AdminServerController {
         });
 
         serverThread.start();
+        startWebcamServer();
+        startTaskServer();
     }
 
     public void stopServer() {
@@ -101,6 +115,41 @@ public class AdminServerController {
     }
 }
 
+public void startWebcamServer() {
+    new Thread(() -> {
+        try {
+            int webcamPort = ConfigManager.getInt("webcam_port", 1413);
+            webcamServerSocket = new ServerSocket(webcamPort);
+            System.out.println("[WEBCAM] Server listening on port " + webcamPort);
+
+            while (true) {
+                Socket clientSocket = webcamServerSocket.accept();
+                new Thread(() -> {
+                    try {
+                        DataInputStream dis = new DataInputStream(clientSocket.getInputStream());
+                        String clientId = dis.readUTF();
+                        JLabel label = webcamLabels.get(clientId);
+
+                        if (label == null) {
+                            System.out.println("[WEBCAM] Không tìm label cho " + clientId);
+                            clientSocket.close();
+                            return;
+                        }
+
+                        new WebcamServerDemo(label).receiveWebcamStream(clientSocket);
+                    } catch (Exception e) {
+                        System.out.println("[WEBCAM] Client error: " + e.getMessage());
+                    }
+                }).start();
+            }
+        } catch (SocketException e) {
+            System.out.println("[WEBCAM] Webcam server stopped.");
+        } catch (Exception e) {
+            System.out.println("[WEBCAM] Error: " + e.getMessage());
+        }
+    }).start();
+}
+
     public void broadcastMessage(String message) {
         if (clients.size() == 0) {
             ui.addLog("[SERVER] No clients connected to broadcast message.");
@@ -112,16 +161,98 @@ public class AdminServerController {
         ui.addLog("[SERVER] Sent message to " + clients.size() + " client(s): " + message);
     }
 
-    public void sendPowerCommand(String clientName, String command) {
-        for (ClientHandler client : clients) {
-            if (client.clientName.equals(clientName)) {
-                client.sendMessage("POWER|" + command);
-                ui.addLog("[SERVER] Sent " + command + " command to " + clientName);
-                return;
-            }
+    public void sendCommandToClient(String clientName, String command) {
+    for (ClientHandler handler : clients) {
+        if (handler.clientName.equals(clientName)) {
+            handler.sendMessage(command);
+            ui.addLog("[SERVER] Sent command to " + clientName + ": " + command);
+            return;
         }
-        ui.addLog("[SERVER] Client " + clientName + " not found to send power command.");
     }
+    ui.addLog("[SERVER] Client " + clientName + " not found.");
+}
+
+public void sendPowerCommand(String clientName, String command) {
+    for (ClientHandler client : clients) {
+        if (client.clientName.equals(clientName)) {
+            client.sendMessage("POWER|" + command);
+            ui.addLog("[SERVER] Sent " + command + " command to " + clientName);
+            return;
+        }
+    }
+    ui.addLog("[SERVER] Client " + clientName + " not found to send power command.");
+}
+
+
+public void sendTaskCommand(String clientName, String command) {
+    // Forward lệnh tới task server qua main socket
+    // Client sẽ relay qua task socket
+    sendCommandToClient(clientName, command);
+
+}
+    public void registerWebcamLabel(String clientName, JLabel label) {
+    webcamLabels.put(clientName, label);
+}
+
+    public void registerTaskTable(String clientName, JTable table, DefaultTableModel model) {
+    taskTables.put(clientName, table);
+    taskModels.put(clientName, model);
+}
+
+    public void startTaskServer() {
+    new Thread(() -> {
+        try {
+            int taskPort = ConfigManager.getInt("task_port", 1414);
+            taskServerSocket = new ServerSocket(taskPort);
+            System.out.println("[TASK] Server listening on port " + taskPort);
+
+            while (true) {
+                try {
+                    Socket clientSocket = taskServerSocket.accept();
+                    clientSocket.setSoTimeout(30000); // ← Timeout 30 giây
+                    
+                    System.out.println("[TASK] Client connected from " + clientSocket.getInetAddress());
+
+                    // ← Chạy trong thread riêng (không block accept() lần tiếp)
+                    new Thread(() -> {
+                        try {
+                            DataInputStream dis = new DataInputStream(clientSocket.getInputStream());
+                            String clientId = dis.readUTF();
+                            System.out.println("[TASK] ClientId: " + clientId);
+
+                            JTable table = taskTables.get(clientId);
+                            DefaultTableModel model = taskModels.get(clientId);
+
+                            if (table == null || model == null) {
+                                System.out.println("[TASK] Table not found for " + clientId);
+                                clientSocket.close();
+                                return;
+                            }
+
+                            System.out.println("[TASK] Starting handler for " + clientId);
+                            new TaskManagerServerDemo(table, model).handleTaskManager(clientSocket);
+
+                        } catch (java.net.SocketTimeoutException e) {
+                            System.out.println("[TASK] Timeout for client");
+                        } catch (Exception e) {
+                            System.out.println("[TASK] Error: " + e.getMessage());
+                        } finally {
+                            try {
+                                clientSocket.close();
+                            } catch (Exception e) {
+                            }
+                        }
+                    }).start();
+
+                } catch (Exception e) {
+                    System.out.println("[TASK] Accept error: " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[TASK] Server error: " + e.getMessage());
+        }
+    }).start();
+}
 
     private class ClientHandler implements Runnable {
         private Socket socket;
@@ -153,9 +284,12 @@ public class AdminServerController {
                     clientNumber = getClientNumber();
                     clientName = "CLIENT-" + String.format("%02d", clientNumber);
 
-                    ui.addLog("[CLIENT] " + clientName + " connected from " + ip);
-                    ui.addClientCard(clientName, hostname, ip, os, username);
-                }
+                dos.writeUTF("CLIENT_NAME|" + clientName);
+                dos.flush();
+
+                ui.addLog("[CLIENT] " + clientName + " connected from " + ip);
+                ui.addClientCard(clientName, hostname, ip, os, username);
+            }
 
                 // Nhận màn hình liên tục
                 while (true) {
@@ -199,6 +333,8 @@ public class AdminServerController {
     clientCount++;
     return clientCount;
     }
+
+    
 
     public void sendMessage(String message) {
         try {

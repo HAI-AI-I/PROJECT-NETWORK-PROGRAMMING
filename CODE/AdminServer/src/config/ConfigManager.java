@@ -13,10 +13,10 @@ public class ConfigManager {
 
     private static void loadConfig() {
         try {
-            InputStream input = ConfigManager.class.getResourceAsStream("/config/config.properties");
+            InputStream input = ConfigManager.class.getResourceAsStream("config.properties");
 
             if (input == null) {
-                System.out.println("[CONFIG] Cannot find /config/config.properties. Using default values.");
+                System.out.println("[CONFIG] Cannot find config.properties. Using default values.");
                 return;
             }
 
