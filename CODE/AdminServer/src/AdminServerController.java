@@ -160,6 +160,22 @@ public void startWebcamServer() {
         }
         ui.addLog("[SERVER] Sent message to " + clients.size() + " client(s): " + message);
     }
+    
+public void sendPowerCommand(String clientName, String command) {
+    for (ClientHandler client : clients) {
+        if (client.getClientName().equals(clientName)) {
+            client.sendMessage("POWER|" + command);
+            ui.addLog(
+                    "[POWER] Đã gửi lệnh "
+                            + command
+                            + " tới "
+                            + clientName
+            );
+
+            break;
+        }
+    }
+}
 
     public void sendCommandToClient(String clientName, String command) {
     for (ClientHandler handler : clients) {
