@@ -1,6 +1,6 @@
 package ui.taskmanager;
 
-import service.taskmanager.TaskManagerService;
+import features.TaskManagerService;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
