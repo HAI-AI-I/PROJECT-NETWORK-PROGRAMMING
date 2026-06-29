@@ -3,7 +3,7 @@ echo [BUILD] Compiling ClientApp...
 
 if not exist bin mkdir bin
 
-javac -encoding UTF-8 -cp "libs/*;lib/*;src" ^
+javac -encoding UTF-8 -cp "libs/*;src" ^
     -d bin ^
     src\config\ClientConfig.java ^
     src\network\Screen.java ^

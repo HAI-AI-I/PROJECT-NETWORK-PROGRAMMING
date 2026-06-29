@@ -14,7 +14,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [+] 2. Dang bien dich Client App...
-javac -encoding UTF-8 -cp "CODE/ClientApp/libs/*;CODE/ClientApp/lib/*;CODE/ClientApp/src" -d CODE/ClientApp/bin CODE/ClientApp/src/main/ClientStart.java
+javac -encoding UTF-8 -cp "CODE/ClientApp/libs/*;CODE/ClientApp/src" -d CODE/ClientApp/bin CODE/ClientApp/src/main/ClientStart.java
 if %errorlevel% neq 0 (
     echo [Loi] Khong the bien dich Client App!
     pause
@@ -23,7 +23,7 @@ if %errorlevel% neq 0 (
 
 echo [+] 3. Khoi chay ung dung...
 start "Admin Server" java -cp CODE/AdminServer/bin AdminServerApp
-start "Client App" java -cp "CODE/ClientApp/libs/*;CODE/ClientApp/lib/*;CODE/ClientApp/bin" main.ClientStart
+start "Client App" java -cp "CODE/ClientApp/libs/*;CODE/ClientApp/bin" main.ClientStart
 
 echo [XONG] Da mo ca hai ung dung! Cua so nay se tu dong dong.
 timeout /t 2 > nul
