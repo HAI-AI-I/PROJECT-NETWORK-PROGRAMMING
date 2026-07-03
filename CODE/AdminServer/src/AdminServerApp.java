@@ -148,8 +148,6 @@ public class AdminServerApp extends JFrame {
         //sidebar.add(createMenuButton("Task Manager", "task.png", false));
         //sidebar.add(createMenuButton("File Explorer", "file.png", false));
         //sidebar.add(createMenuButton("System Power", "power.png", false));
-        sidebar.add(createMenuButton("Stress Test", "stress.png", false));
-
         sidebar.add(Box.createVerticalGlue());
 
         onlineInfoLabel = new JLabel(
@@ -743,60 +741,115 @@ public class AdminServerApp extends JFrame {
     }
 
     private JPanel createStressTestTab() {
+
         JPanel panel = createBaseTabPanel();
 
         JTextArea resultArea = createDarkTextArea();
+
+        resultArea.setEditable(false);
+
+        com.sun.management.OperatingSystemMXBean os =
+                (com.sun.management.OperatingSystemMXBean)
+                        java.lang.management.ManagementFactory.getOperatingSystemMXBean();
+
+        double cpu = Math.max(0, os.getSystemCpuLoad() * 100);
+
+        long total = os.getTotalPhysicalMemorySize();
+        long free = os.getFreePhysicalMemorySize();
+        double ram = ((double)(total - free) / total) * 100;
         resultArea.setText(
                 "Stress Test Console\n"
                         + "-------------------\n"
-                        + "Virtual Clients: 0\n"
-                        + "CPU Usage: 0%\n"
-                        + "RAM Usage: 0 MB\n"
-                        + "Status: Idle\n"
+                        + "Status: Running\n"
+                        + String.format("CPU Usage: %.2f%%\n", cpu)
+                        + String.format("RAM Usage: %.2f%%\n", ram)
         );
 
         JPanel controlPanel = createControlPanel();
 
-        JComboBox<String> clientCountBox = new JComboBox<>(new String[]{"50", "75", "100"});
-        clientCountBox.setBackground(PANEL);
-        clientCountBox.setForeground(TEXT);
-        clientCountBox.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        JTextField clientField = new JTextField(15);
+        clientField.setText("CLIENT-01");
 
         JButton start = createRedButton("Start Test");
         JButton stop = createDarkButton("Stop Test");
-        JButton export = createDarkButton("Export Report");
+        JLabel statusLabel =
+                new JLabel("Status : Idle");
+
+        statusLabel.setForeground(TEXT);
 
         start.addActionListener(e -> {
-            String count = clientCountBox.getSelectedItem().toString();
+
+            String clientName =
+                    clientField.getText().trim();
+
+            controller.sendStressCommand(
+                    clientName,
+                    "STRESS_TEST_START"
+            );
+
+            statusLabel.setText(
+                    "Status : Running"
+            );
+
             resultArea.setText(
                     "Stress Test Console\n"
                             + "-------------------\n"
-                            + "Virtual Clients: " + count + "\n"
-                            + "CPU Usage: 35%\n"
-                            + "RAM Usage: 512 MB\n"
-                            + "Status: Running\n"
+                            + "Status: Waiting data...\n"
             );
-            addLog("[STRESS TEST] Started with " + count + " virtual clients.");
+            addLog(
+                    "[STRESS TEST] Start "
+                            + clientName
+            );
         });
 
         stop.addActionListener(e -> {
-            resultArea.append("\nStatus: Stopped\n");
-            addLog("[STRESS TEST] Stopped.");
+
+            String clientName =
+                    clientField.getText().trim();
+
+            controller.sendStressCommand(
+                    clientName,
+                    "STRESS_TEST_STOP"
+            );
+
+            statusLabel.setText(
+                    "Status : Stopped"
+            );
+
+            resultArea.setText(
+                    "Stress Test Console\n"
+                            + "-------------------\n"
+                            + "Client: "
+                            + clientName
+                            + "\nStatus: Stopped\n"
+                            + "CPU Usage : 0%\n"
+                            + "RAM Usage : 0 MB\n"
+            );
+
+            addLog(
+                    "[STRESS TEST] Stop "
+                            + clientName
+            );
         });
 
-        export.addActionListener(e -> addLog("[STRESS TEST] Export report."));
+        JLabel clientLabel =
+                new JLabel("Client:");
 
-        JLabel countLabel = new JLabel("Virtual Clients:");
-        countLabel.setForeground(TEXT);
+        clientLabel.setForeground(TEXT);
 
-        controlPanel.add(countLabel);
-        controlPanel.add(clientCountBox);
+        controlPanel.add(clientLabel);
+        controlPanel.add(clientField);
         controlPanel.add(start);
         controlPanel.add(stop);
-        controlPanel.add(export);
+        controlPanel.add(statusLabel);
 
-        panel.add(createScroll(resultArea), BorderLayout.CENTER);
-        panel.add(controlPanel, BorderLayout.SOUTH);
+        panel.add(
+                createScroll(resultArea),
+                BorderLayout.CENTER);
+
+        panel.add(
+                controlPanel,
+                BorderLayout.SOUTH);
 
         return panel;
     }
@@ -1019,7 +1072,7 @@ public class AdminServerApp extends JFrame {
     }
     private void openClientActionDialog(String clientName) {
         JDialog dialog = new JDialog(this, "Client Actions - " + clientName, false);
-        dialog.setSize(420, 420);
+        dialog.setSize(420, 520);
         dialog.setLocationRelativeTo(this);
             dialog.setLayout(new BorderLayout());
     dialog.getContentPane().setBackground(BG);
@@ -1044,6 +1097,7 @@ public class AdminServerApp extends JFrame {
         JButton keyloggerBtn = createDarkButton("Keylogger");
         JButton taskBtn = createDarkButton("Task Manager");
         JButton powerBtn = createDarkButton("System Power");
+        JButton stressBtn = createDarkButton("Stress Test");
         JButton closeBtn = createDarkButton("Close");
 
         screenBtn.addActionListener(e -> {
@@ -1088,16 +1142,35 @@ public class AdminServerApp extends JFrame {
             addLog("[POWER] Open power control for " + clientName);
             openPowerControlDialog(clientName);
         });
+        stressBtn.addActionListener(e -> {
+
+            addLog("[STRESS] Open stress test for " + clientName);
+
+            JFrame frame =
+                    new JFrame("Stress Test - " + clientName);
+
+            frame.setSize(800, 500);
+            frame.setLocationRelativeTo(this);
+
+            frame.add(createStressTestTab());
+
+            frame.setVisible(true);
+        });
 
 
         closeBtn.addActionListener(e -> dialog.dispose());
 
         actionPanel.add(screenBtn);
         actionPanel.add(webcamBtn);
+
         actionPanel.add(keyloggerBtn);
         actionPanel.add(taskBtn);
+
         actionPanel.add(powerBtn);
+        actionPanel.add(stressBtn);
+
         actionPanel.add(closeBtn);
+
 
         dialog.add(title, BorderLayout.NORTH);
         dialog.add(actionPanel, BorderLayout.CENTER);
