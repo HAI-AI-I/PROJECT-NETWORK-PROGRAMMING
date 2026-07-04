@@ -457,7 +457,7 @@ public class UIClient extends JFrame {
     public void run(){
         SwingUtilities.invokeLater(() -> {
             try {
-                //Ép giao diện Cross-Platform (Metal) để nút bấm không bị bo tròn kiểu Windows
+                //Ép giao diện Cross-Platform (Metal) để nút bấm không bị bo tròn kiểu Windows.....
                 UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
             } catch (Exception ignored) {}
 
