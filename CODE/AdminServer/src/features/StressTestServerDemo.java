@@ -24,7 +24,7 @@ public class StressTestServerDemo extends Thread {
         long free = osBean.getFreePhysicalMemorySize();
         return ((double) (total - free) / total) * 100;
     }
-    // ==============================================
+    // ==============================================..
 
     public StressTestServerDemo(DataInputStream dis, JTextArea resultArea) {
         this.dis = dis;

@@ -310,7 +310,7 @@ public void sendStressCommand(
                 dis = new DataInputStream(socket.getInputStream());
                 dos = new DataOutputStream(socket.getOutputStream());
 
-                // Nhận thông tin đầu tiên từ client
+                // Nhận thông tin đầu tiên từ client..
                 String message = dis.readUTF();
 
                 if (message.startsWith("HELLO|")) {

@@ -453,7 +453,7 @@ public class UIClient extends JFrame {
         }
     }
 
-    // Hàm Main khởi động để test thử UI
+    // Hàm Main khởi động để test thử UI..
     public void run(){
         SwingUtilities.invokeLater(() -> {
             try {

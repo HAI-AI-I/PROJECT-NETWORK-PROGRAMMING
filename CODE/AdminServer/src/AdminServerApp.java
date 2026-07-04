@@ -530,7 +530,7 @@ public class AdminServerApp extends JFrame {
         }
     });
 }
-// Hàm này sẽ được gọi khi client ngắt kết nối hoặc bị ngắt kết nối
+// Hàm này sẽ được gọi khi client ngắt kết nối hoặc bị ngắt kết nối.
     public void removeClientCard(String clientName) {
     SwingUtilities.invokeLater(() -> {
         JPanel card = clientCards.get(clientName);

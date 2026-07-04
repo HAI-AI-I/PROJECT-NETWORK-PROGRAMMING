@@ -15,7 +15,7 @@ public class StressTestClient {
         if (running) return;
         running = true;
 
-        // CPU stress
+        // CPU stress..
         for (int i = 0; i < 8; i++) {
             Thread t = new Thread(() -> {
                 double value = 0;
