@@ -10,16 +10,18 @@ import javax.swing.*;
 
 public class WebcamServerDemo {
     private JLabel webcamPreviewLabel;
+    private volatile boolean isRunning = false;
 
     public WebcamServerDemo(JLabel label) {
         this.webcamPreviewLabel = label;
     }
 
     public void receiveWebcamStream(Socket clientSocket) {
+        isRunning = true;
         try {
             DataInputStream dis = new DataInputStream(clientSocket.getInputStream());
 
-            while (true) {
+            while (isRunning && !clientSocket.isClosed()) {
                 int imageSize = dis.readInt();
                 if (imageSize > 0) {
                     byte[] imageBytes = new byte[imageSize];
@@ -51,8 +53,17 @@ public class WebcamServerDemo {
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (java.io.EOFException e) {
+            System.out.println("[WEBCAM] Client disconnected");
+            stopWebcamStream();
+        }catch (Exception e) {
             System.out.println("[WEBCAM] Stream closed: " + e.getMessage());
+            stopWebcamStream();
         }
+    }
+
+    public void stopWebcamStream() {
+        isRunning = false;
+        System.out.println("[WEBCAM-SERVER] Webcam stream stopped");
     }
 }

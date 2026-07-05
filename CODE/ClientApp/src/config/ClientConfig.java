@@ -13,8 +13,8 @@ public class ClientConfig {
 
     private static void loadConfig() {
         try {
-            InputStream input = ClientConfig.class.getResourceAsStream("/config/client.properties");
-
+            InputStream input = ClientConfig.class.getResourceAsStream("config.properties");
+            
             if (input == null) {
                 System.out.println("[CONFIG] Cannot find client.properties. Using defaults.");
                 return;

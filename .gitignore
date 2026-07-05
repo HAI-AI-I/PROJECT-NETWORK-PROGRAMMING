@@ -1,4 +1,5 @@
-/CODE/AdminServer/RunServer.bat
-/CODE/ClientApp/RunClient.bat
+
 /CODE/AdminServer/out
 /CODE/ClientApp/out
+/CODE/ClientApp/bin
+/CODE/AdminServer/bin

@@ -9,6 +9,8 @@ import java.io.DataOutputStream;
 import java.net.Socket;
 
 public class WebcamClientDemo {
+    private volatile boolean isRunning = false;
+    private Webcam webcam;
     public void startWebcamStream(Socket socket) {
         try {
             Webcam webcam = Webcam.getDefault();
@@ -41,6 +43,20 @@ public class WebcamClientDemo {
             }
         } catch (Exception e) {
             System.out.println("[WEBCAM-CLIENT] Stream stopped: " + e.getMessage());
+        } finally {
+            stopWebcamStream();
+        }
+    }
+
+     public void stopWebcamStream() {
+        isRunning = false;
+        if (webcam != null && webcam.isOpen()) {
+            try {
+                webcam.close();
+                System.out.println("[WEBCAM-CLIENT] Webcam closed");
+            } catch (Exception e) {
+                System.out.println("[WEBCAM-CLIENT] Error closing webcam: " + e.getMessage());
+            }
         }
     }
 }

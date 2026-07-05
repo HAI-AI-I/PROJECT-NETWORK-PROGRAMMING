@@ -253,6 +253,23 @@ public void sendTaskCommand(String clientName, String command) {
         }
     }).start();
 }
+    public void removeTaskData(String clientName) {
+        if (taskTables != null) {
+            taskTables.remove(clientName);
+        }
+        if (taskModels != null) {
+            taskModels.remove(clientName);
+        }
+        System.out.println("[SERVER] Removed task data for " + clientName);
+    }
+
+    public void removeWebcamData(String clientName) {
+        if (webcamLabels != null) {
+            webcamLabels.remove(clientName);
+        }
+        System.out.println("[SERVER] Removed webcam data for " + clientName);
+    }
+
 
     private class ClientHandler implements Runnable {
         private Socket socket;
@@ -305,17 +322,19 @@ public void sendTaskCommand(String clientName, String command) {
                     }
                 }
 
+            } catch (java.io.EOFException e) {
+                // ← Client disconnect bình thường
+                System.out.println("[CLIENT] " + clientName + " EOFException");
+                handleClientDisconnect();
             } catch (Exception e) {
-                ui.addLog("[CLIENT] " + clientName + " disconnected.");
+                // ← Lỗi khác (socket closed, v.v)
+                System.out.println("[CLIENT] " + clientName + " error: " + e.getMessage());
+                handleClientDisconnect();
             } finally {
                 close();
                 clients.remove(this);
-
                 ui.updateOnlineCount(clients.size());
-
-                if (!clientName.equals("Unknown Client")) {
-                    ui.removeClientCard(clientName);
-                }
+                
                 if (clientNumber > 0) {
                     freeClientNumbers.add(clientNumber);
                 }
@@ -334,6 +353,28 @@ public void sendTaskCommand(String clientName, String command) {
     return clientCount;
     }
 
+    private void handleClientDisconnect() {
+        ui.addLog("[CLIENT] " + clientName + " disconnected. Cleaning up...");
+        
+        // Xoá card
+        ui.removeClientCard(clientName);
+        
+        // Xoá webcam label
+        if (webcamLabels != null) {
+            webcamLabels.remove(clientName);
+        }
+        
+        // Xoá task manager table
+        if (taskTables != null) {
+            taskTables.remove(clientName);
+        }
+        if (taskModels != null) {
+            taskModels.remove(clientName);
+        }
+        
+        System.out.println("[SERVER] Cleaned up all data for " + clientName);
+    }
+
     
 
     public void sendMessage(String message) {
@@ -346,6 +387,7 @@ public void sendTaskCommand(String clientName, String command) {
             ui.addLog("[SERVER] Cannot send message to " + clientName);
         }
     }
+
 
     public void close() {
         try {
