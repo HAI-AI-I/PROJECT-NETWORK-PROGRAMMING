@@ -1,7 +1,6 @@
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map;
+import config.ConfigManager;
+import features.TaskManagerServerDemo;
 import features.WebcamServerDemo;
-import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -9,19 +8,16 @@ import java.io.DataOutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.net.SocketException;
-import features.TaskManagerServerDemo;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.imageio.ImageIO;
+import javax.swing.JLabel;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
-
-import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
-import javax.swing.JLabel;
-
-import config.ConfigManager;
 
 
 public class AdminServerController {
@@ -87,6 +83,7 @@ public class AdminServerController {
         serverThread.start();
         startWebcamServer();
         startTaskServer();
+        startStressTestServer();
     }
 
     public void stopServer() {
@@ -253,6 +250,59 @@ public void sendTaskCommand(String clientName, String command) {
         }
     }).start();
 }
+    public void startStressTestServer() {
+    new Thread(() -> {
+        try {
+            int stressPort = ConfigManager.getInt("stress_port", 1417);
+            ServerSocket stressServerSocket = new ServerSocket(stressPort);
+            System.out.println("[STRESS-SERVER] Listening on port " + stressPort);
+            ui.addLog("[STRESS-SERVER] Listening on port " + stressPort);
+
+            while (true) {
+                Socket clientSocket = stressServerSocket.accept();
+                System.out.println("[STRESS-SERVER] Client connected");
+                ui.addLog("[STRESS-SERVER] Client connected");
+                
+                new Thread(() -> {
+                    DataInputStream dis = null;
+                    try {
+                        dis = new DataInputStream(clientSocket.getInputStream());
+                        String clientId = dis.readUTF();
+                        System.out.println("[STRESS-SERVER] Client: " + clientId);
+                        ui.addLog("[STRESS-SERVER] Client ID: " + clientId);
+
+                        while (!clientSocket.isClosed()) {
+                            try {
+                                String message = dis.readUTF();
+                                if (message != null && !message.isEmpty()) {  // CHECK NULL
+                                    System.out.println("[STRESS-SERVER] " + clientId + " - " + message);
+                                    ui.addLog("[STRESS] " + clientId + " - " + message);
+                                    ui.updateStressTestData(clientId, message);
+                                }
+                            } catch (java.io.EOFException e) {
+                                System.out.println("[STRESS-SERVER] Client closed");
+                                break;
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.out.println("[STRESS-SERVER] Exception: " + e.getClass().getName());  // ← LOG CLASS
+                        System.out.println("[STRESS-SERVER] Message: " + e.getMessage());  // LOG MESSAGE
+                        e.printStackTrace();  // ← PRINT STACK TRACE
+                        ui.addLog("[STRESS-SERVER] Error: " + e.getClass().getName() + " - " + e.getMessage());
+                    } finally {
+                        try {
+                            if (clientSocket != null) clientSocket.close();
+                        } catch (Exception ignored) {}
+                    }
+                }).start();
+            }
+        } catch (Exception e) {
+            System.out.println("[STRESS-SERVER] Server Error: " + e.getMessage());
+            e.printStackTrace();
+            ui.addLog("[STRESS-SERVER] Server Error: " + e.getMessage());
+        }
+    }).start();
+}
     public void removeTaskData(String clientName) {
         if (taskTables != null) {
             taskTables.remove(clientName);
@@ -387,6 +437,8 @@ public void sendTaskCommand(String clientName, String command) {
             ui.addLog("[SERVER] Cannot send message to " + clientName);
         }
     }
+
+
 
 
     public void close() {

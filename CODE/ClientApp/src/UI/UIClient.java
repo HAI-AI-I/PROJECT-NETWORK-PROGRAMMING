@@ -433,6 +433,41 @@ public class UIClient extends JFrame {
                         String pid = message.substring("KILL_PROCESS|".length());
                         new features.taskmanager.ProcessService().killProcess(pid);
                     }
+                    else if (message.startsWith("START_STRESS_TEST|")) {
+                        String[] parts = message.split("\\|");
+                        String testType = parts.length > 1 ? parts[1] : "CPU";
+                        String intensity = parts.length > 2 ? parts[2] : "50";
+
+                        System.out.println("[STRESS-CLIENT] Start: " + testType + " " + intensity);
+
+                        new Thread(() -> {
+                            try {
+                                System.out.println("[STRESS-CLIENT] Connecting to port 1417...");
+                                Socket stressSocket = new Socket(socketClient.getServerIp(), 1417);
+                                DataOutputStream stressDos = new DataOutputStream(stressSocket.getOutputStream());
+                                System.out.println("[STRESS-CLIENT] Connected!");
+                                stressDos.writeUTF(socketClient.getClientName());
+                                stressDos.flush();
+                                System.out.println("[STRESS-CLIENT] Sent client name");
+                                features.StressTestService stressTest = new features.StressTestService(stressDos);
+                                
+                                if ("CPU".equalsIgnoreCase(testType)) {
+                                    stressTest.startCpuStress(Integer.parseInt(intensity));
+                                } else if ("MEMORY".equalsIgnoreCase(testType)) {
+                                    stressTest.startMemoryStress(Integer.parseInt(intensity));
+                                } else if ("DISK".equalsIgnoreCase(testType)) {
+                                    stressTest.startDiskStress(Integer.parseInt(intensity));
+                                }
+                            } catch (Exception ex) {
+                                System.out.println("[STRESS-CLIENT] Error: " + ex.getMessage());
+                                ex.printStackTrace();
+                            }
+                        }).start();
+                    }
+
+                    else if (message.equals("STOP_STRESS_TEST")) {
+                        System.out.println("[STRESS-CLIENT] Stopping...");
+                    }
                     else {
                         System.out.println("[CLIENT] Unknown: " + message);
                     }

